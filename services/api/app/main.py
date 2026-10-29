@@ -30,7 +30,7 @@ WEB = ROOT / "apps" / "web"
 
 def create_app(database_url: str | None = None) -> FastAPI:
     ensure_safe_environment()
-    app = FastAPI(title="Vainah Ecosystem API", version="0.7.0", docs_url="/api/docs")
+    app = FastAPI(title="Vainah Ecosystem API", version="0.8.0", docs_url="/api/docs")
     engine, factory = create_session_factory(database_url)
     app.state.engine = engine
     app.state.session_factory = factory
@@ -73,8 +73,8 @@ def create_app(database_url: str | None = None) -> FastAPI:
             with app.state.engine.connect() as conn:
                 conn.execute(sql_text("SELECT 1"))
         except SQLAlchemyError:
-            return JSONResponse({"status": "degraded", "database": "unavailable", "version": "0.7.0"}, status_code=503)
-        return {"status": "ok", "database": "connected", "product": "Vainah Ecosystem", "version": "0.7.0"}
+            return JSONResponse({"status": "degraded", "database": "unavailable", "version": "0.8.0"}, status_code=503)
+        return {"status": "ok", "database": "connected", "product": "Vainah Ecosystem", "version": "0.8.0"}
 
     app.mount("/assets", StaticFiles(directory=WEB / "assets"), name="assets")
 
