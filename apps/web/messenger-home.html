@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#0e1526">
+  <meta name="description" content="Vainah Messenger — личные сообщения, сообщества, голосовые сообщения, звонки и подтверждённые аккаунты.">
+  <title>Vainah Messenger — общение на своих условиях</title>
+  <link rel="manifest" href="/manifests/messenger.webmanifest">
+  <link rel="icon" type="image/png" href="/assets/app-icons/messenger-192.png">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/messenger-home.css">
+  <script type="module" src="/assets/messenger-app.js"></script>
+</head>
+<body class="messenger-only">
+  <svg class="sprite" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <symbol id="i-chat" viewBox="0 0 24 24"><path d="M20 11.5a8 8 0 0 1-8 8 9 9 0 0 1-4.4-1.2L3 20l1.8-4.5A8.5 8.5 0 1 1 20 11.5Z"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="m8.5 12 2.5 2.5 4.5-5"/></symbol>
+    <symbol id="i-video" viewBox="0 0 24 24"><rect x="2" y="5" width="15" height="14" rx="3"/><path d="m17 10 5-3v10l-5-3"/></symbol>
+    <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 20v-2a6 6 0 0 1 12 0v2M17 6a3 3 0 0 1 0 6m1 4a5 5 0 0 1 3 4"/></symbol>
+    <symbol id="i-spark" viewBox="0 0 24 24"><path d="m12 2 2.2 7.8L22 12l-7.8 2.2L12 22l-2.2-7.8L2 12l7.8-2.2L12 2Z"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m7 12 3 3 7-7"/></symbol>
+    <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M4 12h16m-7-7 7 7-7 7"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></symbol>
+    <symbol id="i-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3M4.9 4.9l2.2 2.2m9.8 9.8 2.2 2.2M19.1 4.9l-2.2 2.2m-9.8 9.8-2.2 2.2"/></symbol>
+  </svg>
+  <div id="marketing">
+    <header class="vm-header">
+      <a class="vm-logo" href="/" aria-label="Vainah Messenger">
+        <img src="/assets/app-icons/messenger-192.png" alt="" width="42" height="42">
+        <span>vainah <b>messenger</b></span>
+      </a>
+      <nav aria-label="Меню"><a href="#features">Возможности</a><a href="#privacy">Безопасность</a><a href="#how-it-works">Как начать</a></nav>
+      <button class="vm-button vm-outline" type="button" data-auth="login">Войти</button>
+    </header>
+    <main>
+      <section class="vm-hero">
+        <div class="vm-hero-copy">
+          <div class="vm-eyebrow"><span class="vm-pulse"></span> VAINAH MESSENGER · NEW ERA</div>
+          <h1>Больше, чем<br><em>просто сообщения.</em></h1>
+          <p>Общение, которое принадлежит вам. Друзья, группы, голосовые сообщения и звонки — в одном быстром пространстве с оригинальным дизайном Vainah.</p>
+          <div class="vm-hero-actions">
+            <button class="vm-button vm-primary" type="button" data-auth="register">Создать аккаунт <svg><use href="#i-arrow"/></svg></button>
+            <button class="vm-button vm-soft" type="button" data-auth="login">У меня уже есть аккаунт</button>
+          </div>
+          <div class="vm-hero-trust"><span><svg><use href="#i-check"/></svg> Один Vainah ID</span><span><svg><use href="#i-check"/></svg> Без Google на сайте</span><span><svg><use href="#i-check"/></svg> Группы и медиа</span></div>
+        </div>
+        <div class="vm-hero-art" aria-label="Макет интерфейса Vainah Messenger">
+          <div class="vm-orbit vm-orbit-one"></div><div class="vm-orbit vm-orbit-two"></div>
+          <div class="vm-preview">
+            <div class="vm-preview-heading"><div class="vm-preview-logo">V</div><div><strong>Vainah Messenger</strong><small>Все диалоги под рукой</small></div><span class="vm-preview-dots">•••</span></div>
+            <div class="vm-preview-search">⌕ &nbsp; Найти чат или контакт</div>
+            <div class="vm-preview-thread"><div class="vm-preview-avatar">М</div><div><b>Моя команда <span>✓</span></b><small>Обсудим новый проект сегодня?</small></div><time>12:45</time></div>
+            <div class="vm-preview-thread"><div class="vm-preview-avatar purple">А</div><div><b>Алекс</b><small>Отлично, договорились!</small></div><time>11:20</time></div>
+            <div class="vm-preview-thread"><div class="vm-preview-avatar green">С</div><div><b>Семья</b><small>📷 Фотография</small></div><time>Вчера</time></div>
+            <div class="vm-preview-bubble">Всё готово для нового общения! <span>✓✓</span></div>
+          </div>
+          <div class="vm-floating vm-float-1"><svg><use href="#i-video"/></svg> Звонки внутри приложения</div>
+          <div class="vm-floating vm-float-2"><svg><use href="#i-shield"/></svg> Контроль доступа</div>
+        </div>
+      </section>
+      <section class="vm-statbar" aria-label="Возможности"><div><b>01</b><span>Единый аккаунт</span></div><div><b>25</b><span>Участников в группе (тестовая версия)</span></div><div><b>24/7</b><span>Доступ к переписке при работе сервера</span></div><div><b>∞</b><span>Идей для общения</span></div></section>
+      <section class="vm-features" id="features">
+        <div class="vm-section-top"><div class="vm-eyebrow">ВОЗМОЖНОСТИ VAINAH</div><h2>Общение без лишнего.<br><span>Всё нужное — рядом.</span></h2><p>Знакомые функции мессенджера в собственной визуальной системе, с приоритетом скорости, читаемости и удобства.</p></div>
+        <div class="vm-feature-grid">
+          <article class="vm-feature vm-feature-wide"><div class="vm-feature-icon"><svg><use href="#i-chat"/></svg></div><h3>Личные диалоги</h3><p>Отправляйте текст, реагируйте, отвечайте на сообщения, закрепляйте важные беседы и ищите по истории.</p><div class="vm-mini-messages"><span>Привет! Как дела?</span><span>Всё отлично! ✨</span><span>Увидимся в Vainah.</span></div></article>
+          <article class="vm-feature"><div class="vm-feature-icon violet"><svg><use href="#i-users"/></svg></div><h3>Группы</h3><p>Соберите друзей или команду в закрытом пространстве с приглашениями и управлением участниками.</p></article>
+          <article class="vm-feature"><div class="vm-feature-icon cyan"><svg><use href="#i-video"/></svg></div><h3>Голос и видео</h3><p>Экспериментальные звонки WebRTC для личного общения. На части сетей соединение пока недоступно.</p></article>
+          <article class="vm-feature"><div class="vm-feature-icon blue"><svg><use href="#i-check"/></svg></div><h3>Проверенный аккаунт</h3><p>Галочка «Проверено Vainah» назначается администраторами, а не самим владельцем аккаунта.</p></article>
+          <article class="vm-feature vm-feature-wide"><div class="vm-feature-icon"><svg><use href="#i-spark"/></svg></div><h3>Уникальные функции Vainah</h3><p>Сохраняйте важный текст из чата в Vainah Notes, управляйте архивом, отключайте звук отдельных диалогов и следите за прочтением.</p></article>
+        </div>
+      </section>
+      <section class="vm-security" id="privacy"><div><div class="vm-eyebrow">ВАШИ ДАННЫЕ</div><h2>Приватность начинается<br>с честности.</h2><p>Сейчас сообщения хранятся на сервере Vainah. Сквозное шифрование ещё разрабатывается — мы не называем переписки зашифрованными «как в WhatsApp», пока это не так.</p><p>Есть блокировки, жалобы, защищённые сессии и ограничение доступа к чужим чатам.</p></div><div class="vm-security-card"><svg><use href="#i-lock"/></svg><h3>Контроль аккаунта</h3><p>Ваши чаты открываются только через личный Vainah ID. Не передавайте пароль другим людям.</p><span>Этап: закрытая тестовая версия</span></div></section>
+      <section class="vm-steps" id="how-it-works"><div class="vm-section-top"><div class="vm-eyebrow">НАЧАТЬ ЛЕГКО</div><h2>Три шага до первого чата.</h2></div><div class="vm-step-grid"><div><b>01</b><h3>Создайте Vainah ID</h3><p>Имя, email и пароль — без обязательной привязки Google.</p></div><div><b>02</b><h3>Найдите знакомых</h3><p>Начните переписку по email Vainah ID.</p></div><div><b>03</b><h3>Общайтесь</h3><p>Чаты, группы, реакции, голосовые сообщения и другие функции.</p></div></div><button class="vm-button vm-primary" type="button" data-auth="register">Зарегистрироваться <svg><use href="#i-arrow"/></svg></button></section>
+    </main>
+    <footer class="vm-footer"><a class="vm-logo" href="/"><img src="/assets/app-icons/messenger-192.png" alt="" width="32" height="32"><span>vainah <b>messenger</b></span></a><span>Vainah Messenger · Предварительная версия · © 2026</span><span>Наш дизайн. Наши правила.</span></footer>
+  </div>
+
+  <div id="auth-overlay" class="vm-auth-overlay hidden" role="presentation">
+    <section class="vm-auth-card" role="dialog" aria-modal="true" aria-labelledby="auth-heading">
+      <button class="vm-close" id="auth-close" type="button" aria-label="Закрыть">×</button>
+      <div class="vm-auth-brand"><img src="/assets/app-icons/messenger-192.png" alt="" width="64" height="64"><span>VAINAH ID</span></div>
+      <h2 id="auth-heading">Войти в Messenger</h2><p id="auth-desc">Войдите через email и пароль.</p>
+      <form id="vm-auth-form">
+        <label id="vm-name-label" class="hidden">Ваше имя<input id="vm-name" maxlength="80" minlength="2" autocomplete="name" placeholder="Как вас зовут"></label>
+        <label>Email<input id="vm-email" type="email" maxlength="254" autocomplete="email" required placeholder="you@example.com"></label>
+        <label>Пароль<input id="vm-password" type="password" minlength="10" maxlength="128" autocomplete="current-password" required placeholder="От 10 символов"></label>
+        <label id="vm-invite-label" class="hidden">Код приглашения<input id="vm-invite" maxlength="128" placeholder="Для закрытой тестовой версии"></label>
+        <p id="vm-auth-error" role="alert" class="vm-error hidden"></p>
+        <button class="vm-button vm-primary vm-auth-submit" id="vm-auth-submit" type="submit">Войти</button>
+      </form>
+      <button class="vm-switch" type="button" id="vm-switch-auth">Создать новый аккаунт</button>
+      <p class="vm-auth-foot">Google-вход на сайте не требуется. Используйте отдельный пароль Vainah ID.</p>
+    </section>
+  </div>
+
+  <div id="vm-workspace" class="vm-workspace hidden">
+    <aside class="vm-app-rail"><a href="/" class="vm-rail-brand" aria-label="Vainah Messenger"><img src="/assets/app-icons/messenger-192.png" alt="" width="44" height="44"></a><span class="vm-rail-label">MESSENGER</span><button type="button" id="vm-rail-chats" class="vm-rail-item active"><svg><use href="#i-chat"/></svg><span>Чаты</span></button><button type="button" id="vm-rail-settings" class="vm-rail-item"><svg><use href="#i-settings"/></svg><span>Профиль</span></button><div class="vm-rail-bottom"><div id="vm-my-avatar" class="vm-my-avatar">V</div><span id="vm-my-name">Vainah ID</span><button type="button" id="vm-logout" class="vm-rail-exit">Выйти</button></div></aside>
+    <div class="vm-app-main">
+      <header class="vm-app-top"><div><span class="vm-app-overline">YOUR SPACE / MESSENGER</span><h1 id="breadcrumb-name">Vainah messenger</h1></div><div class="vm-app-user"><span class="vm-status-indicator"></span><span id="vm-app-email">Аккаунт Vainah</span><span id="vm-self-badge" class="vm-verified hidden" title="Проверено Vainah">✓</span></div></header>
+      <div id="screen-feature"><div id="feature-root" class="vm-feature-root"></div></div>
+      <section id="vm-settings-panel" class="vm-settings-panel hidden"><h2>Настройки Vainah ID</h2><p>Обновите данные аккаунта или управляйте галочками подтверждения, если у вас есть полномочия администратора.</p><form id="vm-profile-form"><label>Отображаемое имя<input id="vm-profile-name" minlength="2" maxlength="80" required></label><button type="submit" class="vm-button vm-primary">Сохранить имя</button></form><div class="vm-profile-data"><b>Ваш Vainah ID</b><code id="vm-my-id"></code><button type="button" id="vm-copy-id">Скопировать ID</button></div><div id="vm-verification-admin" class="hidden vm-admin"><h3>Выдать или снять галочку</h3><p>Доступно только владельцам административных Vainah ID, заданным на сервере.</p><form id="vm-verify-form"><label>ID пользователя<input id="vm-verify-target" required minlength="36" maxlength="36"></label><label class="vm-checkbox"><input type="checkbox" id="vm-verify-enabled" checked> Проверенный аккаунт</label><button type="submit" class="vm-button vm-primary">Применить</button></form></div><p id="vm-settings-status" role="status"></p></section>
+    </div>
+  </div>
+  <div id="vm-toast" class="vm-toast hidden" role="status" aria-live="polite"></div>
+</body>
+</html>
