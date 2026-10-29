@@ -181,6 +181,25 @@ async function messenger(root) {
   input.setAttribute('aria-label','Текст сообщения');
   const recordBtn=btn('🎙',()=>toggleRecording(),'vchat-attach');recordBtn.title='Записать голосовое сообщение';
   const sendBtn=E('button','vchat-send','➤');sendBtn.type='submit';sendBtn.title='Отправить';
+  // SVG actions are part of the standalone Vainah Messenger brand.
+  if(document.body.classList.contains('messenger-only')){
+    const icons=[
+      [searchInChat,'i-search','Поиск по чату'],
+      [callAudio,'i-phone','Голосовой звонок'],
+      [callVideo,'i-video','Видеозвонок'],
+      [attachBtn,'i-plus','Прикрепить файл'],
+      [recordBtn,'i-mic','Голосовое сообщение'],
+      [sendBtn,'i-send','Отправить сообщение']
+    ];
+    for(const [button, symbol, label] of icons){
+      button.replaceChildren();
+      const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+      const use=document.createElementNS('http://www.w3.org/2000/svg','use');
+      use.setAttribute('href','#'+symbol);
+      svg.append(use);svg.setAttribute('aria-hidden','true');
+      button.append(svg);button.title=label;button.setAttribute('aria-label',label);
+    }
+  }
   add(composer,attachBtn,recordBtn,input,sendBtn,attach);
   add(area,header,info,stream,replyBar,composer);
   add(stage,sidebar,area);
