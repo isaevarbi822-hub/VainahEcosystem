@@ -19,7 +19,7 @@ from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session
 
 from .database import get_db
-from .models import AppRecord, DirectMessage, PrivateMedia, PrivateMediaBlob, User, uid
+from .models import AppRecord, DirectMessage, PrivateMedia, PrivateMediaBlob, User, VerifiedAccount, uid
 from .security import csrf_protect, current_user, enforce_origin
 
 router = APIRouter(prefix="/api", tags=["Vainah applications"])
@@ -150,7 +150,9 @@ def find_contact(email: str, db: Session = Depends(get_db), user: User = Depends
     match = db.scalar(select(User).where(User.email == email.strip().lower()))
     if not match or match.id == user.id:
         raise HTTPException(404, "Аккаунт не найден")
-    return {"contact": public_contact(match)}
+    contact = public_contact(match)
+    contact["verified"] = db.get(VerifiedAccount, match.id) is not None
+    return {"contact": contact}
 
 
 @router.get("/messenger/contacts")
