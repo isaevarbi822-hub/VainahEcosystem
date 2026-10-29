@@ -10,7 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from .database import get_db
-from .models import User, LoginSession, LinkedIdentity
+from .models import User, LoginSession, LinkedIdentity, VerifiedAccount
 from .schemas import Credentials, Signup, ProfileUpdate, PasswordChange
 from pydantic import BaseModel, Field
 from .google_identity import google_client_id, verify_google_credential
