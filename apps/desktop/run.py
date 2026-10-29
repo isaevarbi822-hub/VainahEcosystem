@@ -91,7 +91,7 @@ def launch() -> None:
         try:
             with urllib.request.urlopen(url + "/api/health", timeout=2) as resp:
                 info = json.load(resp)
-                if info.get("product") != "Vainah Ecosystem" or info.get("version") != "0.4.0":
+                if info.get("product") != "Vainah Ecosystem" or info.get("version") != "0.6.0":
                     raise RuntimeError("На порту 8000 работает другая версия сервера")
         except (OSError, ValueError) as exc:
             raise RuntimeError("Порт 8000 занят другой программой. Закройте её.") from exc

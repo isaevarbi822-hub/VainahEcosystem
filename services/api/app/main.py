@@ -1,5 +1,7 @@
 """Vainah Ecosystem: single sign-in and eleven modular applications."""
 from pathlib import Path
+import os
+from urllib.parse import urlsplit
 
 from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
@@ -12,7 +14,10 @@ from .database import create_session_factory
 from .notes import router as notes_router
 from .suite import router as suite_router
 from .integrations import router as integrations_router
+from .messenger import router as messenger_v2_router
+from .groups import router as messenger_groups_router
 from .security import ensure_safe_environment
+from .realtime import router as realtime_router, LiveHub
 
 APP_NAMES = {"ai":"AI", "messenger":"Messenger", "browser":"Browser", "music":"Music",
              "weather":"Weather", "maps":"Maps", "notes":"Notes", "translate":"Translate",
@@ -23,19 +28,27 @@ WEB = ROOT / "apps" / "web"
 
 def create_app(database_url: str | None = None) -> FastAPI:
     ensure_safe_environment()
-    app = FastAPI(title="Vainah Ecosystem API", version="0.4.0", docs_url="/api/docs")
+    app = FastAPI(title="Vainah Ecosystem API", version="0.7.0", docs_url="/api/docs")
     engine, factory = create_session_factory(database_url)
     app.state.engine = engine
     app.state.session_factory = factory
+    app.state.live_hub = LiveHub()
     @app.middleware("http")
     async def security_headers(request: Request, call_next):
         response = await call_next(request)
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["Referrer-Policy"] = "no-referrer"
+        # WebSocket signalling is limited to the same host, not arbitrary third parties.
+        configured_origin = os.getenv("APP_ORIGIN", "").strip()
+        if configured_origin.startswith("https://"):
+            live_origin = "wss://" + urlsplit(configured_origin).netloc
+        else:
+            ws_scheme = "wss" if request.url.scheme == "https" else "ws"
+            live_origin = f"{ws_scheme}://{request.url.netloc}"
         response.headers["Content-Security-Policy"] = (
             "default-src 'self'; script-src 'self'; style-src 'self'; "
-            "img-src 'self' data:; connect-src 'self'; object-src 'none'; "
+            "img-src 'self' data:; connect-src 'self' " + live_origin + "; object-src 'none'; "
             "base-uri 'self'; frame-src https://www.openstreetmap.org; frame-ancestors 'none'"
         )
         if request.url.path.startswith("/api/"):
@@ -45,6 +58,9 @@ def create_app(database_url: str | None = None) -> FastAPI:
     app.include_router(auth_router)
     app.include_router(notes_router)
     app.include_router(suite_router)
+    app.include_router(messenger_v2_router)
+    app.include_router(messenger_groups_router)
+    app.include_router(realtime_router)
     app.include_router(integrations_router)
 
     @app.get("/api/health")
@@ -53,8 +69,8 @@ def create_app(database_url: str | None = None) -> FastAPI:
             with app.state.engine.connect() as conn:
                 conn.execute(sql_text("SELECT 1"))
         except SQLAlchemyError:
-            return JSONResponse({"status": "degraded", "database": "unavailable", "version": "0.4.0"}, status_code=503)
-        return {"status": "ok", "database": "connected", "product": "Vainah Ecosystem", "version": "0.4.0"}
+            return JSONResponse({"status": "degraded", "database": "unavailable", "version": "0.7.0"}, status_code=503)
+        return {"status": "ok", "database": "connected", "product": "Vainah Ecosystem", "version": "0.7.0"}
 
     app.mount("/assets", StaticFiles(directory=WEB / "assets"), name="assets")
 

@@ -1,6 +1,6 @@
 // Offline APP SHELL only. Never store auth, notes or any API response in CacheStorage.
-const CACHE = 'vainah-shell-v040';
-const ASSETS = ['/', '/assets/app.js', '/assets/suite-ui.js', '/assets/styles.css', '/assets/icon-192.png'];
+const CACHE = 'vainah-shell-v070';
+const ASSETS = ['/', '/assets/app.js', '/assets/suite-ui.js', '/assets/messenger-live.js', '/assets/styles.css', '/assets/icon-192.png'];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS)).then(() => self.skipWaiting()));
 });

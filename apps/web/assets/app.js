@@ -105,7 +105,7 @@ function navigate(screen) {
   $('screen-feature').classList.toggle('hidden', ['home','notes','apps','settings'].includes(screen));
   document.querySelectorAll('[data-screen]').forEach((node) => node.classList.toggle('active', node.dataset.screen === screen));
   $('breadcrumb-name').textContent = { home: 'Обзор', notes: 'Заметки', apps: 'Приложения', settings: 'Настройки' }[screen] || 'Vainah ' + screen;
-  if (screen === 'notes') renderNotes();
+  if (screen === 'notes') loadNotes().catch(error => showToast(error.message));
   if (!['home','notes','apps','settings'].includes(screen)) showApp(screen, { api, state, showToast });
 }
 

@@ -1,6 +1,9 @@
 package no.vainah.ecosystem;
 
 import android.app.Activity;
+import android.Manifest;
+import android.content.pm.PackageManager;
+import android.webkit.PermissionRequest;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.graphics.Color;
@@ -28,8 +31,11 @@ public final class MainActivity extends Activity {
     private LinearLayout errorView;
     private boolean connectionFailed = false;
     private static final int FILE_PICKER_REQUEST = 1401;
+    private static final int MICROPHONE_REQUEST = 1402;
+    private PermissionRequest pendingMediaPermission;
+    private String[] pendingMediaResources;
     private ValueCallback<Uri[]> fileChooserCallback;
-    private final String homeUrl = BuildConfig.VAINAH_BASE_URL + "/";
+    private final String homeUrl = BuildConfig.VAINAH_BASE_URL + BuildConfig.VAINAH_START_PATH;
     private final Uri trustedUri = Uri.parse(BuildConfig.VAINAH_BASE_URL);
 
     @Override public void onCreate(Bundle state) {
@@ -49,13 +55,36 @@ public final class MainActivity extends Activity {
         CookieManager.getInstance().setAcceptCookie(true);
         CookieManager.getInstance().setAcceptThirdPartyCookies(webView, false);
         webView.setWebChromeClient(new WebChromeClient() {
+            @Override public void onPermissionRequest(PermissionRequest request) {
+                runOnUiThread(() -> {
+                    Uri origin = request.getOrigin();
+                    if (!sameOrigin(origin)) { request.deny(); return; }
+                    java.util.ArrayList<String> needs = new java.util.ArrayList<>();
+                    for (String requested : request.getResources()) {
+                        if (PermissionRequest.RESOURCE_AUDIO_CAPTURE.equals(requested)) {
+                            if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED)
+                                needs.add(Manifest.permission.RECORD_AUDIO);
+                        } else if (PermissionRequest.RESOURCE_VIDEO_CAPTURE.equals(requested)) {
+                            if (checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED)
+                                needs.add(Manifest.permission.CAMERA);
+                        } else { request.deny(); return; }
+                    }
+                    if (needs.isEmpty()) request.grant(request.getResources());
+                    else {
+                        if (pendingMediaPermission != null) pendingMediaPermission.deny();
+                        pendingMediaPermission = request;
+                        pendingMediaResources = request.getResources();
+                        requestPermissions(needs.toArray(new String[0]), MICROPHONE_REQUEST);
+                    }
+                });
+            }
             @Override public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> callback, FileChooserParams params) {
                 if (fileChooserCallback != null) fileChooserCallback.onReceiveValue(null);
                 fileChooserCallback = callback;
                 Intent choose = new Intent(Intent.ACTION_GET_CONTENT);
                 choose.addCategory(Intent.CATEGORY_OPENABLE);
                 choose.setType("*/*");
-                choose.putExtra(Intent.EXTRA_MIME_TYPES, new String[] {"image/jpeg", "image/png", "image/gif", "image/webp", "audio/mpeg", "audio/wav", "audio/ogg", "audio/mp4"});
+                choose.putExtra(Intent.EXTRA_MIME_TYPES, new String[] {"image/jpeg", "image/png", "image/gif", "image/webp", "audio/mpeg", "audio/wav", "audio/ogg", "audio/mp4", "audio/webm"});
                 try {
                     startActivityForResult(Intent.createChooser(choose, "Выберите файл Vainah"), FILE_PICKER_REQUEST);
                     return true;
@@ -134,6 +163,18 @@ public final class MainActivity extends Activity {
     }
 
     private void showError() { runOnUiThread(() -> { if (errorView != null) errorView.setVisibility(View.VISIBLE); }); }
+
+    @Override public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grants) {
+        super.onRequestPermissionsResult(requestCode, permissions, grants);
+        if (requestCode == MICROPHONE_REQUEST && pendingMediaPermission != null) {
+            boolean allGranted = grants.length > 0;
+            for (int grant : grants) if (grant != PackageManager.PERMISSION_GRANTED) allGranted = false;
+            if (allGranted) pendingMediaPermission.grant(pendingMediaResources);
+            else pendingMediaPermission.deny();
+            pendingMediaPermission = null;
+            pendingMediaResources = null;
+        }
+    }
 
     @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);

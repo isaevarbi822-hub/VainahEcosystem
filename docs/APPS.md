@@ -23,3 +23,8 @@
 - Android is not an offline standalone server: a working Vainah API is mandatory.
 - End-to-end encryption, push notifications, offline sync, separate browser engine, and native background services are not implemented.
 - Do not use real personal secrets in the local prototype.
+
+
+## Messenger 0.6.0
+
+Отдельная оболочка для Windows/Android и PWA, диалоги, сообщения, квитанции прочтения, реакции, редактирование, удаление, блокировка, фото и аудиовложения. Без E2EE, push и звонков.

@@ -1,4 +1,4 @@
-# Vainah Android Studio — source preview 0.3.0
+# Vainah Android Studio — source preview 0.6.0
 
 This is a native Android **WebView wrapper** around the eleven-module UI. It uses the same API as Windows and the web app. It is **not a pre-built APK** and **does not include an offline Python server**.
 
@@ -25,5 +25,16 @@ Open the debug Android app. It will connect to Windows via the USB bridge. Accou
 - TLS certificate errors are rejected.
 - External top-level HTTPS links are passed to the system browser, not loaded as part of the trusted Vainah origin.
 - JavaScript is enabled only for the first-party app UI; Android file access is disabled except through the system file chooser.
-- Messenger isn't end-to-end encrypted; no push/voice calls or user blocking.
+- Messenger isn't end-to-end encrypted; no calls or push notifications. Direct chats include blocking, voice uploads and browser recording (where microphone permission works). Groups are text-only.
 - This preview is not ready for general public distribution or hosting real user data.
+
+## Messenger and Ecosystem variants
+
+The same Android project supports two independent debug packages:
+
+```bash
+gradle -p apps/android :app:assembleDebug -PVAINAH_BASE_URL=https://YOUR-RENDER-SERVICE.onrender.com
+gradle -p apps/android :app:assembleDebug -PVAINAH_MESSENGER=true -PVAINAH_BASE_URL=https://YOUR-RENDER-SERVICE.onrender.com --rerun-tasks
+```
+
+Set the real backend URL; do not use the placeholder above. Messenger launches `/app/messenger`, uses `no.vainah.messenger` and requests microphone permission only for authorized Vainah voice recording. Ecosystem opens `/` and uses `no.vainah.ecosystem`. A single output `app-debug.apk` is overwritten between builds; GitHub Actions saves each under a separate filename. Both require the Python backend.

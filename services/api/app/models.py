@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import time
 import uuid
-from sqlalchemy import ForeignKey, Index, Integer, LargeBinary, String, Text
+from sqlalchemy import ForeignKey, Index, Integer, LargeBinary, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from .database import Base
 
@@ -94,3 +94,103 @@ class PrivateMediaBlob(Base):
     __tablename__ = "private_media_blobs"
     id: Mapped[str] = mapped_column(ForeignKey("private_media.id", ondelete="CASCADE"), primary_key=True)
     content: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+
+
+class MessageDetails(Base):
+    """Separate table so existing 0.4 PostgreSQL messages do not need column changes."""
+    __tablename__ = "message_details"
+    message_id: Mapped[str] = mapped_column(ForeignKey("direct_messages.id", ondelete="CASCADE"), primary_key=True)
+    edited_at: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    deleted_at: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+
+class MessageReceipt(Base):
+    __tablename__ = "message_receipts"
+    message_id: Mapped[str] = mapped_column(ForeignKey("direct_messages.id", ondelete="CASCADE"), primary_key=True)
+    read_at: Mapped[int] = mapped_column(Integer, default=now)
+
+
+class MessageReaction(Base):
+    __tablename__ = "message_reactions"
+    __table_args__ = (UniqueConstraint("message_id", "user_id", name="uq_message_reaction_person"),)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    message_id: Mapped[str] = mapped_column(ForeignKey("direct_messages.id", ondelete="CASCADE"), index=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    emoji: Mapped[str] = mapped_column(String(8))
+
+
+class MessageAttachment(Base):
+    __tablename__ = "message_attachments"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    message_id: Mapped[str] = mapped_column(ForeignKey("direct_messages.id", ondelete="CASCADE"), unique=True, index=True)
+    filename: Mapped[str] = mapped_column(String(160))
+    media_type: Mapped[str] = mapped_column(String(50))
+    size: Mapped[int] = mapped_column(Integer)
+    content: Mapped[bytes] = mapped_column(LargeBinary)
+
+
+class MessengerBlock(Base):
+    __tablename__ = "messenger_blocks"
+    __table_args__ = (UniqueConstraint("owner_id", "target_id", name="uq_messenger_block"),)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    owner_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    target_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+
+
+class MessengerReport(Base):
+    __tablename__ = "messenger_reports"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    reporter_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    message_id: Mapped[str] = mapped_column(ForeignKey("direct_messages.id", ondelete="CASCADE"), index=True)
+    reason: Mapped[str] = mapped_column(String(240))
+    created_at: Mapped[int] = mapped_column(Integer, default=now)
+
+
+class MessengerChatPreference(Base):
+    """Private per-user chat controls; no changes to legacy message rows."""
+    __tablename__ = "messenger_chat_preferences"
+    __table_args__ = (UniqueConstraint("user_id", "contact_id", name="uq_messenger_chat_preference"),)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    contact_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    pinned: Mapped[bool] = mapped_column(default=False)
+    archived: Mapped[bool] = mapped_column(default=False)
+    muted: Mapped[bool] = mapped_column(default=False)
+
+
+class MessageReply(Base):
+    """Optional quote relation for 0.6 direct messages."""
+    __tablename__ = "message_replies"
+    message_id: Mapped[str] = mapped_column(ForeignKey("direct_messages.id", ondelete="CASCADE"), primary_key=True)
+    replied_to_id: Mapped[str] = mapped_column(ForeignKey("direct_messages.id", ondelete="CASCADE"), index=True)
+
+
+class MessengerGroup(Base):
+    __tablename__ = "messenger_groups"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    name: Mapped[str] = mapped_column(String(80))
+    owner_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    created_at: Mapped[int] = mapped_column(Integer, default=now)
+
+
+class MessengerGroupMember(Base):
+    __tablename__ = "messenger_group_members"
+    __table_args__ = (UniqueConstraint("group_id", "user_id", name="uq_messenger_group_member"),)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    group_id: Mapped[str] = mapped_column(ForeignKey("messenger_groups.id", ondelete="CASCADE"), index=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    joined_at: Mapped[int] = mapped_column(Integer, default=now)
+    last_read_at: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class MessengerGroupMessage(Base):
+    __tablename__ = "messenger_group_messages"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    group_id: Mapped[str] = mapped_column(ForeignKey("messenger_groups.id", ondelete="CASCADE"), index=True)
+    sender_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    body: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[int] = mapped_column(Integer, default=now)
+    deleted_at: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+
+Index("ix_messenger_group_messages_recent", MessengerGroupMessage.group_id, MessengerGroupMessage.created_at)

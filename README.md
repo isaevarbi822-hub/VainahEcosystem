@@ -1,8 +1,22 @@
-# Vainah Ecosystem — 0.4.0 App Suite (development preview)
+> **Messenger 0.7.0:** authenticated WebSocket for foreground real-time updates; opt-in foreground browser alerts; experimental one-to-one WebRTC audio/video calling with own call controls. Calls require BOTH users to keep Messenger open on the same server worker, HTTPS, microphone/camera permission, and a compatible browser. ICE uses public STUN, **no TURN relay**: some internet/mobile networks will not connect. No Android push or always-on calling. Messages are still stored server-side and have no end-to-end encryption. See RELEASE-NOTES.md.
+
+> **Messenger 0.7.0:** обновлены диалоги, реакции, вложения, блокировка и отдельные точки сборки EXE/APK. Подробности: [MESSENGER-BUILD.md](MESSENGER-BUILD.md) и [RELEASE-NOTES.md](RELEASE-NOTES.md). Сообщения НЕ имеют сквозного шифрования.
+
+# Vainah Ecosystem — 0.7.0 App Suite (development preview)
 
 **Eleven interactive app modules, one Vainah ID** — a Python FastAPI backend, a responsive web/PWA shell, a Windows desktop launcher, and an Android Studio WebView wrapper. The project is a working **local multi-app preview**, **not** eleven independently compiled native products and **not** yet production-ready. The native Windows EXE and Android APK must be built on compatible development machines; this ZIP contains their source projects.
 
-## Improvements in 0.4.0
+## Messenger 0.7.0 (private preview)
+
+- Private **group conversations** for up to 25 Vainah ID accounts, with owner-only invitations, member lists, leave and owner-delete controls.
+- Personal chat preferences: **pin, archive and mute**. These settings are stored in the database per account.
+- **Quoted replies**, **search in direct conversations**, chat filtering and better responsive navigation.
+- Browser microphone recording of short **WebM/OGG voice messages** (only where the device grants microphone permission), plus image and audio attachments in direct chats.
+- Android client gates microphone and camera use with runtime permissions and a same-origin check.
+- Existing messages and Vainah ID accounts are kept. New tables are additive.
+- Messaging is **not end-to-end encrypted**. Group chats are currently text-only; attachments, voice and reactions are supported in direct chats. Experimental live calls and single-worker realtime are included in 0.7.0; stories, reliable public calling, background push and production-scale realtime remain future work.
+
+## Account and platform improvements (0.4–0.7)
 
 - Vainah ID now has a **Settings** screen: change display name, update password and revoke sessions on other devices.
 - Optional `VAINAH_SIGNUP_CODE` restricts registration for a small private beta, without exposing the code in source code.
@@ -14,11 +28,11 @@
 
 ## What you can use now
 
-| Application | Implemented in 0.3.0 | Scope / limitations |
+| Application | Available in the 0.7.0 preview | Scope / limitations |
 |---|---|---|
 | Vainah ID | Local registration, login, profile/password changes, logout and revoking other sessions | Unverified email; no recovery/MFA; basic per-process limiter only — private beta tests |
 | Notes | Personal note creation, editing, search, deletion | Stored in SQLite/PostgreSQL with unsaved-edit confirmation |
-| Messenger | Direct messages via exact Vainah ID email, recent contacts, polling | No end-to-end encryption, calls, media messaging, push notifications or blocking |
+| Messenger | Direct messages, text groups, reactions, attachments, voice notes, pin/archive/mute, WebSocket live updates and experimental WebRTC audio/video calls | No end-to-end message encryption, TURN, native background push or group file attachments; calls may fail on restrictive networks |
 | Browser | Bookmarks with external URL opening | Not a standalone Chromium/Firefox browser engine |
 | Music | Upload and play private MP3/WAV/OGG/M4A files | No licensed streaming catalog; 20 MB/file and database storage quota considerations |
 | Weather | City search and 5-day forecast | Requires Internet and Open-Meteo access |
@@ -126,7 +140,7 @@ Create a **new private** repository called `vainah-ecosystem`, then from the ext
 ```bash
 git init
 git add .
-git commit -m "feat: Vainah Ecosystem 0.4.0 private-beta improvements"
+git commit -m "feat: Vainah Ecosystem 0.7.0 private-beta improvements"
 git branch -M main
 git remote add origin https://github.com/YOUR_USERNAME/vainah-ecosystem.git
 git push -u origin main

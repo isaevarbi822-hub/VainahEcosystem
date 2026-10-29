@@ -184,6 +184,9 @@ def send_message(data: MessageData, request: Request, db: Session = Depends(get_
     recipient = db.scalar(select(User).where(User.email == data.email.strip().lower()))
     if not recipient or recipient.id == user.id:
         raise HTTPException(404, "Получатель не найден")
+    from .messenger import check_pair, validate_send_rate
+    check_pair(db, user.id, recipient.id)
+    validate_send_rate(user.id)
     if not data.body.strip():
         raise HTTPException(422, "Пустое сообщение")
     message = DirectMessage(sender_id=user.id, recipient_id=recipient.id, body=data.body.strip())
@@ -221,6 +224,7 @@ def detected_type(data: bytes) -> str | None:
     if data.startswith(b"ID3") or (len(data) > 2 and data[0] == 255 and data[1] & 224 == 224): return "audio/mpeg"
     if data[:4] == b"RIFF" and data[8:12] == b"WAVE": return "audio/wav"
     if data.startswith(b"OggS"): return "audio/ogg"
+    if data.startswith(bytes.fromhex("1a45dfa3")): return "audio/webm"
     if data[4:8] == b"ftyp": return "audio/mp4"
     return None
 
