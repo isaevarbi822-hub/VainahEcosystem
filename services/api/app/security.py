@@ -136,5 +136,5 @@ def ensure_safe_environment() -> None:
             raise RuntimeError("COOKIE_SECURE=true is mandatory in production")
         if not os.getenv("APP_ORIGIN", "").startswith("https://"):
             raise RuntimeError("APP_ORIGIN=https://... is mandatory in production")
-        if not os.getenv("VAINAH_SIGNUP_CODE", ""):
-            raise RuntimeError("Set VAINAH_SIGNUP_CODE to prevent open unverified registrations")
+        if os.getenv("VAINAH_SIGNUP_MODE", "").lower() != "open" and not os.getenv("VAINAH_SIGNUP_CODE", ""):
+            raise RuntimeError("Set VAINAH_SIGNUP_CODE for a private beta, or explicitly choose VAINAH_SIGNUP_MODE=open for public email signups")
