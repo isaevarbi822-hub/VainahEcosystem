@@ -26,6 +26,16 @@ class User(Base):
     notes: Mapped[list[Note]] = relationship(back_populates="owner", cascade="all, delete-orphan")
     sessions: Mapped[list[LoginSession]] = relationship(back_populates="owner", cascade="all, delete-orphan")
 
+class LinkedIdentity(Base):
+    """Stable external identity; Google account IDs are never inferred from email."""
+    __tablename__ = "linked_identities"
+    __table_args__ = (UniqueConstraint("provider", "subject", name="uq_linked_identity_provider_subject"),)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    provider: Mapped[str] = mapped_column(String(32), index=True)
+    subject: Mapped[str] = mapped_column(String(255))
+    created_at: Mapped[int] = mapped_column(Integer, default=now)
+
 
 class LoginSession(Base):
     __tablename__ = "login_sessions"
