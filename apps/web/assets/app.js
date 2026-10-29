@@ -17,6 +17,8 @@ const apps = [
 const $ = (id) => document.getElementById(id);
 const state = { user: null, csrf: '', notes: [], selected: null, mode: 'login', screen: 'home', noteDirty: false };
 let toastTimer;
+let googleClientId = '';
+
 
 function showToast(message) {
   $('toast').textContent = message;
@@ -51,9 +53,9 @@ function setAuthMode(mode) {
   $('invite-group').classList.toggle('hidden', !signUp);
   $('signup-name').required = signUp;
   $('password').autocomplete = signUp ? 'new-password' : 'current-password';
-  $('form-heading').textContent = signUp ? 'Создайте свой Vainah ID' : 'С возвращением';
-  $('form-subheading').textContent = signUp ? 'Один аккаунт для всех приложений Vainah.' : 'Войдите, чтобы открыть вашу экосистему.';
-  $('auth-submit').firstChild.textContent = signUp ? 'Создать аккаунт ' : 'Войти ';
+  $('form-heading').textContent = signUp ? 'Создайте Vainah ID' : (location.pathname === '/app/messenger' ? 'Войти в Vainah Messenger' : 'С возвращением');
+  $('form-subheading').textContent = signUp ? 'Один аккаунт для всех приложений Vainah.' : 'Google или email — выберите удобный способ входа.';
+  $('auth-submit').firstChild.textContent = signUp ? 'Создать аккаунт по email ' : 'Войти через email ';
   $('switch-question').textContent = signUp ? 'Уже есть аккаунт?' : 'Ещё нет аккаунта?';
   $('auth-mode-toggle').textContent = signUp ? 'Войти' : 'Создать Vainah ID';
   $('auth-error').classList.add('hidden');
@@ -78,6 +80,69 @@ async function submitAuth(event) {
   } finally {
     button.disabled = false;
   }
+}
+
+
+async function googleCredentialReceived(response) {
+  if (!response?.credential) return;
+  const errorNode = state.user ? $('google-link-message') : $('auth-error');
+  if (errorNode) { errorNode.textContent = ''; errorNode.classList.add('hidden'); }
+  try {
+    if (state.user) {
+      await api('/api/auth/google/link', { method: 'POST', body: { credential: response.credential } });
+      showToast('Google подключён к Vainah ID');
+    } else {
+      const result = await api('/api/auth/google', { method: 'POST', body: {
+        credential: response.credential, invite_code: $('signup-invite').value || null
+      }});
+      state.user = result.user; state.csrf = result.csrf_token;
+      await showWorkspace();
+    }
+  } catch (error) {
+    if (errorNode) { errorNode.textContent = error.message; errorNode.classList.remove('hidden'); }
+    else showToast(error.message);
+  }
+}
+
+async function initGoogleLogin() {
+  let providers;
+  try { providers = await api('/api/auth/providers'); }
+  catch { return; }
+  if (!providers.google || !providers.google_client_id) return;
+  googleClientId = providers.google_client_id;
+  $('google-disabled').classList.add('hidden');
+  $('auth-google-wrap').classList.remove('hidden');
+  // Google OAuth is blocked in embedded WebViews. Native platforms need an
+  // OS-supported account picker or a secure system-browser login callback.
+  const embedded = Boolean(window.pywebview) || /; wv\\)/i.test(navigator.userAgent);
+  if (embedded) {
+    $('auth-google-message').textContent = 'Встроенное окно не поддерживает Google-вход. Откройте адрес Vainah в Chrome или Edge либо войдите через email.';
+    $('auth-google-message').classList.remove('hidden');
+    return;
+  }
+  const script = document.createElement('script');
+  script.src = 'https://accounts.google.com/gsi/client';
+  script.async = true;
+  script.onload = () => {
+    if (!window.google?.accounts?.id) return;
+    window.google.accounts.id.initialize({
+      client_id: googleClientId,
+      callback: googleCredentialReceived,
+      auto_select: false
+    });
+    window.google.accounts.id.renderButton($('auth-google-button'), {
+      theme: 'outline', size: 'large', text: 'continue_with', shape: 'pill', width: 290
+    });
+    window.google.accounts.id.renderButton($('google-link-button'), {
+      theme: 'outline', size: 'medium', text: 'continue_with'
+    });
+    $('google-link-section').classList.remove('hidden');
+  };
+  script.onerror = () => {
+    $('auth-google-message').textContent = 'Google сейчас недоступен. Можно войти через email.';
+    $('auth-google-message').classList.remove('hidden');
+  };
+  document.head.append(script);
 }
 
 function renderAppCards(target, limit, query='') {
@@ -270,7 +335,9 @@ function registerHandlers() {
 }
 
 registerHandlers();
+setAuthMode('login');
 restoreSession();
+initGoogleLogin();
 
 // Native install on supported browsers when hosted on HTTPS (Android/desktop).
 if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
