@@ -1,0 +1,25 @@
+plugins { id 'com.android.application' }
+
+android {
+    namespace 'no.vainah.ecosystem'
+    compileSdk 36
+
+    defaultConfig {
+        applicationId 'no.vainah.ecosystem'
+        minSdk 26
+        targetSdk 35
+        versionCode 4
+        versionName '0.4.0'
+        def siteUrl = (project.findProperty('VAINAH_BASE_URL') ?: 'http://127.0.0.1:8000').toString()
+        if (!(siteUrl.startsWith('https://') || siteUrl == 'http://127.0.0.1:8000')) {
+            throw new GradleException('Use HTTPS for production or the USB localhost developer URL')
+        }
+        buildConfigField 'String', 'VAINAH_BASE_URL', '\"' + siteUrl + '\"'
+    }
+
+    buildFeatures { buildConfig true }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}

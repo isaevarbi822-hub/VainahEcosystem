@@ -1,0 +1,23 @@
+# Import into Render as a Blueprint, or configure an existing Web Service manually.
+# Keep Neon credentials and private beta invite secret OUT of GitHub.
+services:
+  - type: web
+    name: vainah-ecosystem
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn services.api.app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/health
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: COOKIE_SECURE
+        value: "true"
+      - key: APP_ORIGIN
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: VAINAH_SIGNUP_CODE
+        sync: false
+      - key: VAINAH_MEDIA_BACKEND
+        value: database

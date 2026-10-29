@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#0b101b" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="icon" type="image/png" href="/assets/icon-192.png" />
+  <meta name="description" content="Vainah Ecosystem — единый Vainah ID и пространство для ваших приложений." />
+  <title>Vainah — твоя цифровая экосистема</title>
+  <link rel="stylesheet" href="/assets/styles.css" />
+  <script type="module" src="/assets/app.js"></script>
+</head>
+<body>
+  <div class="ambient ambient-one"></div><div class="ambient ambient-two"></div>
+  <div id="login-view" class="auth-page hidden">
+    <div class="auth-story">
+      <a class="brand brand-large" href="/" aria-label="Vainah"><span class="brand-mark">V</span> vainah<span class="brand-dot">.</span></a>
+      <div class="auth-intro">
+        <p class="overline">ВАША ЦИФРОВАЯ ВСЕЛЕННАЯ</p>
+        <h1>Всё ваше.<br /><span>В одном месте.</span></h1>
+        <p class="lead">Один аккаунт Vainah ID для заметок, общения, музыки, ИИ и других будущих приложений.</p>
+        <div class="auth-highlights"><span>✦ Один аккаунт</span><span>◈ Простой интерфейс</span><span>⌁ Ваши данные</span></div>
+      </div>
+      <p class="story-footer">VAINAH ECOSYSTEM · PREVIEW 0.4.0</p>
+    </div>
+    <main class="auth-panel">
+      <div class="auth-card">
+        <p class="eyebrow">VAINAH ID</p>
+        <h2 id="form-heading">С возвращением</h2>
+        <p id="form-subheading" class="muted">Войдите, чтобы открыть вашу экосистему.</p>
+        <form id="auth-form" autocomplete="on">
+          <label id="name-group" class="field hidden"><span>Ваше имя</span><input id="signup-name" name="name" minlength="2" maxlength="80" autocomplete="name" placeholder="Как к вам обращаться" /></label>
+          <label id="invite-group" class="field hidden"><span>Код приглашения (если есть)</span><input id="signup-invite" name="invite" autocomplete="off" maxlength="128" placeholder="Код для закрытого теста" /></label>
+          <label class="field"><span>Электронная почта</span><input id="email" name="email" type="email" autocomplete="email" required placeholder="you@example.com" /></label>
+          <label class="field"><span>Пароль</span><input id="password" name="password" type="password" autocomplete="current-password" minlength="10" maxlength="128" required placeholder="Минимум 10 символов" /></label>
+          <p id="auth-error" class="form-error hidden" role="alert"></p>
+          <button class="primary full" type="submit" id="auth-submit">Войти <span>↗</span></button>
+        </form>
+        <p class="auth-switch"><span id="switch-question">Ещё нет аккаунта?</span> <button id="auth-mode-toggle" class="link-button" type="button">Создать Vainah ID</button></p>
+        <p class="micro-note">Первая версия для локального тестирования. Используйте отдельный пароль, не применяйте пароль от других сервисов.</p>
+      </div>
+    </main>
+  </div>
+
+  <div id="workspace" class="shell hidden">
+    <aside class="sidebar">
+      <a class="brand" href="/" aria-label="Vainah"><span class="brand-mark">V</span> vainah<span class="brand-dot">.</span></a>
+      <div class="nav-heading">ПРОСТРАНСТВО</div>
+      <nav class="sidebar-nav" aria-label="Навигация">
+        <button class="nav-item active" type="button" data-screen="home"><span class="nav-icon">◫</span> Главная</button>
+        <button class="nav-item" type="button" data-screen="notes"><span class="nav-icon">▤</span> Заметки <span class="nav-chip">NEW</span></button>
+        <button class="nav-item" type="button" data-screen="apps"><span class="nav-icon">▦</span> Все приложения</button>
+        <button class="nav-item" type="button" data-screen="settings"><span class="nav-icon">⚙</span> Настройки Vainah ID</button>
+      </nav>
+      <div class="sidebar-bottom">
+        <div class="preview-tag"><span class="pulse"></span> Preview 0.4.0</div>
+        <div class="account-box"><span id="avatar" class="avatar">V</span><div class="account-text"><strong id="sidebar-name">Vainah User</strong><small id="sidebar-email"></small></div></div>
+        <button id="logout" class="logout" type="button">↪ &nbsp; Выйти из аккаунта</button>
+      </div>
+    </aside>
+    <div class="main-area">
+      <header class="topbar"><div class="breadcrumb">VAINAH <span>/</span> <b id="breadcrumb-name">Обзор</b></div><div class="top-actions"><span class="online-dot"></span> <span>Vainah ID · Preview</span> <span class="top-avatar" id="top-avatar">V</span></div></header>
+      <main class="main-content">
+        <section id="screen-home" class="screen">
+          <div class="hero"><div class="hero-glow"></div><div class="hero-content"><span class="hero-kicker">✦ ВАШЕ ПРОСТРАНСТВО</span><h1 id="hello">Привет!</h1><p>Добро пожаловать в Vainah. Одно пространство для ваших идей, файлов и будущих открытий.</p><button class="light-button" data-open-notes type="button">Открыть заметки <span>↗</span></button></div><div class="hero-symbol" aria-hidden="true">V</div></div>
+          <div class="section-heading"><div><p class="eyebrow">ЭКОСИСТЕМА</p><h2>Ваши приложения</h2></div><button class="text-action" id="show-all" type="button">Посмотреть все →</button></div>
+          <div id="home-apps" class="app-grid"></div>
+          <div class="overview-grid"><div class="info-panel"><span class="info-icon">◈</span><p class="eyebrow">VAINAH ID</p><h3>Один аккаунт. Все возможности.</h3><p>Ваша учётная запись будет объединять приложения Vainah. Начните с заметок — другие приложения доступны в каталоге.</p></div><div class="info-panel notes-stat"><span class="info-icon">▤</span><p class="eyebrow">ВАШИ ЗАМЕТКИ</p><div class="big-number" id="notes-count">0</div><p>Заметок сохранено в вашем пространстве.</p></div></div>
+        </section>
+        <section id="screen-apps" class="screen hidden"><div class="page-header"><p class="eyebrow">VAINAH UNIVERSE</p><h1>Все приложения</h1><p>11 приложений в одной экосистеме. Некоторые функции требуют внешних сервисов.</p></div><label class="search-wrap app-search"><span>⌕</span><input id="search-apps" type="search" aria-label="Поиск приложений" placeholder="Найти приложение... (Ctrl+K)" /></label><div id="all-apps" class="app-grid"></div></section>
+        <section id="screen-notes" class="screen hidden"><div class="page-header notes-page-header"><div><p class="eyebrow">VAINAH NOTES</p><h1>Ваши мысли. Ваше пространство.</h1><p>Создавайте и храните заметки в личном кабинете.</p></div><button id="create-note" class="primary" type="button">＋ Новая заметка</button></div>
+          <div class="notes-layout"><div class="notes-list-panel"><label class="search-wrap"><span>⌕</span><input id="search-notes" aria-label="Поиск заметок" placeholder="Поиск заметок..." /></label><div id="notes-list" class="notes-list" aria-label="Список заметок"></div></div>
+            <div class="editor-panel"><div id="editor-empty" class="editor-empty"><div class="empty-icon">✎</div><h3>Здесь начинаются идеи</h3><p>Выберите заметку слева или создайте новую.</p></div><div id="editor" class="editor hidden"><div class="editor-toolbar"><span class="editor-label">ЛИЧНАЯ ЗАМЕТКА</span><div class="editor-buttons"><button id="delete-note" class="danger-button" type="button">Удалить</button><button id="save-note" class="primary small" type="button">Сохранить</button></div></div><input id="note-title" class="editor-title" aria-label="Заголовок заметки" placeholder="Без названия" maxlength="160" /><textarea id="note-content" class="editor-content" aria-label="Содержание заметки" placeholder="Начните писать здесь..." maxlength="50000"></textarea><div class="editor-footer" id="note-status">Изменения сохраняются по кнопке «Сохранить»</div></div></div>
+          </div></section>
+        <section id="screen-settings" class="screen hidden">
+          <div class="page-header"><p class="eyebrow">ВАШ АККАУНТ</p><h1>Настройки Vainah ID</h1><p>Управляйте своим именем, паролем и активными сеансами. Электронную почту пока изменить нельзя.</p></div>
+          <div class="settings-grid">
+            <form id="profile-form" class="suite-panel"><h2 class="suite-title">Мой профиль</h2><label class="suite-field">Имя<input class="suite-input" id="profile-name" minlength="2" maxlength="80" required /></label><label class="suite-field">Email<input class="suite-input" id="profile-email" type="email" disabled /></label><button type="submit" class="primary">Сохранить имя</button></form>
+            <form id="password-form" class="suite-panel"><h2 class="suite-title">Безопасность</h2><label class="suite-field">Текущий пароль<input class="suite-input" id="current-password" type="password" autocomplete="current-password" minlength="10" required /></label><label class="suite-field">Новый пароль<input class="suite-input" id="new-password" type="password" autocomplete="new-password" minlength="10" required /></label><button type="submit" class="primary">Сменить пароль</button><p class="suite-help">После смены пароля остальные сеансы завершатся.</p><button type="button" id="logout-others" class="secondary-btn">Выйти на других устройствах</button></form>
+          </div>
+        </section>
+        <section id="screen-feature" class="screen hidden"><div id="feature-root"></div></section>
+      </main>
+      <footer class="footer">© Vainah Ecosystem · Apps preview 0.4.0 · Made for what comes next</footer>
+    </div>
+  </div>
+  <nav class="mobile-tabs" aria-label="Быстрый переход"><button type="button" data-screen="home">⌂ <span>Главная</span></button><button type="button" data-screen="apps">▦ <span>Приложения</span></button><button type="button" data-screen="notes">▤ <span>Заметки</span></button><button type="button" data-screen="settings">⚙ <span>Профиль</span></button></nav>
+  <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+</body>
+</html>
