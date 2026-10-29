@@ -19,6 +19,7 @@ from .groups import router as messenger_groups_router
 from .security import ensure_safe_environment
 from .realtime import router as realtime_router, LiveHub
 from .verification import router as verification_router
+from .community import router as community_router
 
 APP_NAMES = {"ai":"AI", "messenger":"Messenger", "browser":"Browser", "music":"Music",
              "weather":"Weather", "maps":"Maps", "notes":"Notes", "translate":"Translate",
@@ -63,6 +64,7 @@ def create_app(database_url: str | None = None) -> FastAPI:
     app.include_router(messenger_groups_router)
     app.include_router(realtime_router)
     app.include_router(verification_router)
+    app.include_router(community_router)
     app.include_router(integrations_router)
 
     @app.get("/api/health")
@@ -103,7 +105,7 @@ def create_app(database_url: str | None = None) -> FastAPI:
         if app_name not in APP_NAMES:
             from fastapi import HTTPException
             raise HTTPException(status_code=404, detail="Unknown app")
-        content = (WEB / "index.html").read_text(encoding="utf-8")
+        content = (WEB / ("messenger-home.html" if app_name == "messenger" else "index.html")).read_text(encoding="utf-8")
         content = content.replace('href="/manifest.webmanifest"',
                                   f'href="/manifests/{app_name}.webmanifest"')
         content = content.replace('<title>Vainah — твоя цифровая экосистема</title>',
@@ -112,7 +114,7 @@ def create_app(database_url: str | None = None) -> FastAPI:
 
     @app.get("/", include_in_schema=False)
     def index():
-        return FileResponse(WEB / "index.html")
+        return FileResponse(WEB / "messenger-home.html")
 
     return app
 
