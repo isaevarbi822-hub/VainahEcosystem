@@ -38,7 +38,7 @@ def register(data: Signup, request: Request, response: Response, db: Session = D
     caller = request.client.host if request.client else "unknown"
     enforce_auth_limit("register", caller)
     expected_code = os.getenv("VAINAH_SIGNUP_CODE", "")
-    if expected_code and not hmac.compare_digest(data.invite_code or "", expected_code):
+    if os.getenv("VAINAH_SIGNUP_MODE", "").lower() != "open" and expected_code and not hmac.compare_digest(data.invite_code or "", expected_code):
         raise HTTPException(status_code=403, detail="Для регистрации нужен код приглашения")
     if db.scalar(select(User).where(User.email == data.email)):
         raise HTTPException(status_code=409, detail="Этот email уже используется")
@@ -156,7 +156,7 @@ def login_google(data: GoogleCredential, request: Request, response: Response,
             raise HTTPException(status_code=409, detail=(
                 "Этот email уже используется. Войдите через email и подключите Google в настройках Vainah ID."))
         expected_code = os.getenv("VAINAH_SIGNUP_CODE", "")
-        if expected_code and not hmac.compare_digest(data.invite_code or "", expected_code):
+        if os.getenv("VAINAH_SIGNUP_MODE", "").lower() != "open" and expected_code and not hmac.compare_digest(data.invite_code or "", expected_code):
             raise HTTPException(status_code=403, detail="Для регистрации через Google нужен код приглашения")
         enforce_auth_limit("register", caller)
         user = User(email=identity["email"], display_name=identity["name"],
