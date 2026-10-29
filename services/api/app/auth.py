@@ -3,14 +3,17 @@ from __future__ import annotations
 
 import hmac
 import os
+import secrets
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from .database import get_db
-from .models import User, LoginSession
+from .models import User, LoginSession, LinkedIdentity
 from .schemas import Credentials, Signup, ProfileUpdate, PasswordChange
+from pydantic import BaseModel, Field
+from .google_identity import google_client_id, verify_google_credential
 from .security import (COOKIE_NAME, SESSION_SECONDS, csrf_protect, current_session,
                        current_user, enforce_origin, hash_password, secure_cookie_enabled,
                        start_session, token_digest, verify_password,
@@ -121,3 +124,74 @@ def logout_others(request: Request, db: Session = Depends(get_db),
         db.delete(item)
     db.commit()
     return {"ok": True, "revoked_sessions": len(other_sessions)}
+
+
+class GoogleCredential(BaseModel):
+    credential: str = Field(min_length=30, max_length=12000)
+    invite_code: str | None = Field(default=None, max_length=128)
+
+
+@router.get("/providers")
+def providers():
+    return {"email": True, "google": bool(google_client_id()),
+            "google_client_id": google_client_id() or None}
+
+
+@router.post("/google")
+def login_google(data: GoogleCredential, request: Request, response: Response,
+                 db: Session = Depends(get_db)):
+    enforce_origin(request)
+    caller = request.client.host if request.client else "unknown"
+    enforce_auth_limit("login", caller)
+    identity = verify_google_credential(data.credential)
+    link = db.scalar(select(LinkedIdentity).where(
+        LinkedIdentity.provider == "google", LinkedIdentity.subject == identity["sub"]))
+    if link:
+        user = db.get(User, link.user_id)
+        if user is None:
+            raise HTTPException(status_code=401, detail="Связанный аккаунт Vainah ID не найден")
+    else:
+        # Never link by email automatically; it is not a secure identity binding.
+        if db.scalar(select(User).where(User.email == identity["email"])):
+            raise HTTPException(status_code=409, detail=(
+                "Этот email уже используется. Войдите через email и подключите Google в настройках Vainah ID."))
+        expected_code = os.getenv("VAINAH_SIGNUP_CODE", "")
+        if expected_code and not hmac.compare_digest(data.invite_code or "", expected_code):
+            raise HTTPException(status_code=403, detail="Для регистрации через Google нужен код приглашения")
+        enforce_auth_limit("register", caller)
+        user = User(email=identity["email"], display_name=identity["name"],
+                    password_hash=hash_password(secrets.token_urlsafe(48)))
+        db.add(user)
+        db.flush()
+        db.add(LinkedIdentity(user_id=user.id, provider="google", subject=identity["sub"]))
+        try:
+            db.commit()
+        except IntegrityError:
+            db.rollback()
+            raise HTTPException(status_code=409, detail="Этот Google-аккаунт уже привязан к Vainah ID")
+        count_auth_attempt("register", caller)
+    token, csrf = start_session(db, user)
+    issue_cookie(response, token)
+    return {"user": public_user(user), "csrf_token": csrf}
+
+
+@router.post("/google/link", dependencies=[Depends(csrf_protect)])
+def link_google(data: GoogleCredential, request: Request, db: Session = Depends(get_db),
+                user: User = Depends(current_user)):
+    enforce_origin(request)
+    identity = verify_google_credential(data.credential)
+    if identity["email"] != user.email:
+        raise HTTPException(status_code=403, detail="Email Google должен совпадать с email Vainah ID")
+    existing = db.scalar(select(LinkedIdentity).where(
+        LinkedIdentity.provider == "google", LinkedIdentity.subject == identity["sub"]))
+    if existing:
+        if existing.user_id == user.id:
+            return {"ok": True, "linked": True}
+        raise HTTPException(status_code=409, detail="Google-аккаунт уже привязан к другому пользователю")
+    db.add(LinkedIdentity(user_id=user.id, provider="google", subject=identity["sub"]))
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Google-аккаунт уже привязан")
+    return {"ok": True, "linked": True}
