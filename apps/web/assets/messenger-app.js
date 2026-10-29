@@ -31,7 +31,9 @@ function showAuth(mode='login') {
   $('auth-heading').textContent=register?'Создать Vainah ID':'Войти в Vainah Messenger';
   $('auth-desc').textContent=register?'Создайте аккаунт, чтобы начать общаться.':'Войдите через email и пароль.';
   $('vm-name-label').classList.toggle('hidden',!register);
-  $('vm-invite-label').classList.toggle('hidden',!register);
+  // Public email registration is instant when VAINAH_SIGNUP_MODE=open.
+  // Invitation mode remains available server-side for private previews.
+  $('vm-invite-label').classList.add('hidden');
   $('vm-name').required=register;
   $('vm-password').autocomplete=register?'new-password':'current-password';
   $('vm-auth-submit').textContent=register?'Зарегистрироваться':'Войти';
