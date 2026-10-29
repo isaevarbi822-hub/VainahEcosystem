@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session
 from .database import get_db
 from .models import (
     DirectMessage, MessageAttachment, MessageDetails, MessageReaction,
-    MessageReceipt, MessengerBlock, MessengerReport, MessengerChatPreference, MessageReply, User, uid,
+    MessageReceipt, MessengerBlock, MessengerReport, MessengerChatPreference, MessageReply, User, VerifiedAccount, uid,
 )
 from .security import csrf_protect, current_user, enforce_origin
 from .suite import detected_type
@@ -150,6 +150,8 @@ def chats(db: Session = Depends(get_db), user: User = Depends(current_user)):
             peers[other_id]["unread"] += 1
     contacts = db.scalars(select(User).where(User.id.in_(peers.keys()))).all() if peers else []
     users = {u.id: u for u in contacts}
+    verified_ids = set(db.scalars(select(VerifiedAccount.user_id).where(
+        VerifiedAccount.user_id.in_(peers.keys()))).all()) if peers else set()
     result = []
     for peer_id, info in peers.items():
         peer = users.get(peer_id)
@@ -168,6 +170,7 @@ def chats(db: Session = Depends(get_db), user: User = Depends(current_user)):
             "id": peer.id, "display_name": peer.display_name, "email": peer.email,
             "preview": preview, "updated_at": last.created_at,
             "unread": info["unread"], "blocked": block_exists(db, user.id, peer.id),
+            "verified": peer_id in verified_ids,
         })
     result.sort(key=lambda c: (not c["pinned"], -c["updated_at"], c["id"]))
     return {"items": result}
