@@ -147,6 +147,17 @@ async function openBot(item) {
   const button=document.createElement('button');button.className='vm-button vm-primary';button.textContent='Сохранить ответ';
   form.append(trigger,reply,button);root.append(form);
   form.onsubmit=async e=>{e.preventDefault();try{await api(`/api/community/bots/${item.id}/rules`,{method:'POST',body:{trigger:trigger.value,reply:reply.value}});form.reset();toast('Ответ добавлен');}catch(err){toast(err.message);}};
+  const testForm=document.createElement('form');testForm.className='vm-community-form';
+  const prompt=document.createElement('input');prompt.placeholder='Напишите боту тестовое сообщение';prompt.maxLength=500;prompt.required=true;
+  const testButton=document.createElement('button');testButton.className='vm-button vm-soft';testButton.textContent='Проверить бота';
+  const answer=document.createElement('p');answer.className='vm-bot-answer';answer.setAttribute('role','status');
+  testForm.append(prompt,testButton);root.append(testForm,answer);
+  testForm.onsubmit=async e=>{
+    e.preventDefault();
+    try{const result=await api(`/api/community/bots/${item.id}/reply`,{method:'POST',body:{message:prompt.value}});
+      answer.textContent=result.reply;
+    }catch(err){answer.textContent=err.message;}
+  };
 }
 async function restore(){
   try{const data=await api('/api/auth/me');state.user=data.user;state.csrf=data.csrf_token;await startWorkspace();}
