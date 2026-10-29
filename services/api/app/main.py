@@ -47,9 +47,9 @@ def create_app(database_url: str | None = None) -> FastAPI:
             ws_scheme = "wss" if request.url.scheme == "https" else "ws"
             live_origin = f"{ws_scheme}://{request.url.netloc}"
         response.headers["Content-Security-Policy"] = (
-            "default-src 'self'; script-src 'self'; style-src 'self'; "
-            "img-src 'self' data:; connect-src 'self' " + live_origin + "; object-src 'none'; "
-            "base-uri 'self'; frame-src https://www.openstreetmap.org; frame-ancestors 'none'"
+            "default-src 'self'; script-src 'self' https://accounts.google.com/gsi/client; style-src 'self' https://accounts.google.com/gsi/style; "
+            "img-src 'self' data: https://*.googleusercontent.com; connect-src 'self' https://accounts.google.com/gsi/ " + live_origin + "; object-src 'none'; "
+            "base-uri 'self'; frame-src https://www.openstreetmap.org https://accounts.google.com/gsi/; frame-ancestors 'none'"
         )
         if request.url.path.startswith("/api/"):
             response.headers["Cache-Control"] = "no-store"
