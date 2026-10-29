@@ -14,6 +14,8 @@ import time
 import urllib.request
 import webbrowser
 import json
+import logging
+from logging.handlers import RotatingFileHandler
 
 APP_NAMES = ("ai", "messenger", "browser", "music", "weather", "maps", "notes", "translate", "study", "photos", "calendar")
 
@@ -34,6 +36,30 @@ def allocate_local_port() -> int:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
         sock.bind(("127.0.0.1", 0))
         return sock.getsockname()[1]
+
+def configure_server_logging(store: Path) -> None:
+    """Log embedded-server errors to disk, including from console-less Windows EXEs."""
+    log_path = (store / "vainah-desktop.log").resolve()
+    logger = logging.getLogger("uvicorn")
+    if not any(isinstance(h, RotatingFileHandler) and Path(h.baseFilename) == log_path
+               for h in logger.handlers):
+        handler = RotatingFileHandler(log_path, maxBytes=1_000_000, backupCount=2, encoding="utf-8")
+        handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
+        logger.addHandler(handler)
+    logger.setLevel(logging.WARNING)
+    logger.propagate = False
+    logging.getLogger("uvicorn.error").propagate = True
+
+
+def create_embedded_server(app, store: Path, port: int):
+    """Create a Uvicorn server safe for PyInstaller --windowed executables."""
+    import uvicorn
+    configure_server_logging(store)
+    # The default Uvicorn log formatter assumes sys.stderr exists, which is
+    # false for Windows GUI executables built with --windowed / --noconsole.
+    config = uvicorn.Config(app, host="127.0.0.1", port=port,
+                            log_level="warning", access_log=False, log_config=None)
+    return uvicorn.Server(config)
 
 
 def launch() -> None:
@@ -72,7 +98,6 @@ def launch() -> None:
         return
 
     from services.api.app.main import app
-    import uvicorn
 
     # Reuse a Vainah server already running on loopback so users can open multiple app windows.
     # An unrelated process on the port is rejected. We never bind 0.0.0.0.
@@ -91,15 +116,13 @@ def launch() -> None:
         try:
             with urllib.request.urlopen(url + "/api/health", timeout=2) as resp:
                 info = json.load(resp)
-                if info.get("product") != "Vainah Ecosystem" or info.get("version") != "0.6.0":
+                if info.get("product") != "Vainah Ecosystem" or info.get("version") != app.version:
                     raise RuntimeError("На порту 8000 работает другая версия сервера")
         except (OSError, ValueError) as exc:
             raise RuntimeError("Порт 8000 занят другой программой. Закройте её.") from exc
     else:
         own_server = True
-        config = uvicorn.Config(app, host="127.0.0.1", port=port,
-                                log_level="warning", access_log=False)
-        server = uvicorn.Server(config)
+        server = create_embedded_server(app, store, port)
         thread = threading.Thread(target=server.run, name="vainah-api", daemon=True)
         thread.start()
         for _ in range(100):
