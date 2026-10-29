@@ -26,6 +26,14 @@ class User(Base):
     notes: Mapped[list[Note]] = relationship(back_populates="owner", cascade="all, delete-orphan")
     sessions: Mapped[list[LoginSession]] = relationship(back_populates="owner", cascade="all, delete-orphan")
 
+class VerifiedAccount(Base):
+    """Admin-issued verification; separate table preserves existing user schema."""
+    __tablename__ = "verified_accounts"
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    verified_at: Mapped[int] = mapped_column(Integer, default=now)
+    verified_by: Mapped[str] = mapped_column(String(36))
+
+
 class LinkedIdentity(Base):
     """Stable external identity; Google account IDs are never inferred from email."""
     __tablename__ = "linked_identities"
