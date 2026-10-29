@@ -190,8 +190,9 @@ async function messenger(root) {
   let replyTarget=null, recorder=null, recordingStream=null, recordChunks=[];
   const isGroup=()=>chosen?.kind==='group';
   const active=()=>document.getElementById('feature-root').contains(stage)&&
-    !document.getElementById('screen-feature').classList.contains('hidden')&&
-    state.user && document.getElementById('breadcrumb-name').textContent === 'Vainah messenger';
+    state.user && (document.body.classList.contains('messenger-only') ||
+      (!document.getElementById('screen-feature').classList.contains('hidden') &&
+       document.getElementById('breadcrumb-name').textContent === 'Vainah messenger'));
   const timeText=t=>new Intl.DateTimeFormat('ru-RU',{hour:'2-digit',minute:'2-digit'}).format(new Date(t*1000));
   const myBubble=message=>{
     const row=E('div',`vchat-line ${message.mine?'own':''}`);
@@ -281,8 +282,9 @@ async function messenger(root) {
       const item=E('button',`vchat-contact ${chosen?.id===c.id&&chosen?.kind===c.kind?'active':''}`);item.type='button';
       const avatar=E('span','vchat-avatar',c.kind==='group'?'👥':c.display_name.slice(0,1).toUpperCase());
       const main=E('span','vchat-contact-main');
-      add(main,E('strong','',(c.pinned?'📌 ':'')+c.display_name+(c.muted?' 🔕':'')),
-        E('small','',c.blocked?'Контакт заблокирован':c.preview||c.email));
+      const title=E('strong','',(c.pinned?'📌 ':'')+c.display_name+(c.muted?' 🔕':''));
+      if(c.verified){const badge=E('span','vchat-verified','✓');badge.title='Проверено Vainah';badge.setAttribute('aria-label','Проверено Vainah');title.append(badge);}
+      add(main,title,E('small','',c.blocked?'Контакт заблокирован':c.preview||c.email));
       add(item,avatar,main);
       if(c.unread)item.append(E('span','vchat-count',String(Math.min(c.unread,99))));
       item.addEventListener('click',()=>select(c));contacts.append(item);
@@ -325,6 +327,7 @@ async function messenger(root) {
   async function select(contact){
     chosen={...contact,kind:contact.kind||'direct'};contact=chosen;lastSignature='';replyTarget=null;replyBar.classList.add('hidden');
     name.textContent=contact.display_name;
+    if(contact.verified){const badge=E('span','vchat-verified','✓');badge.title='Проверено Vainah';badge.setAttribute('aria-label','Проверено Vainah');name.append(badge);}
     presence.textContent=contact.kind==='group'?`${contact.members} участников · переписка на сервере`:contact.email;
     face.textContent=contact.kind==='group'?'👥':contact.display_name.slice(0,1).toUpperCase();
     blockBtn.disabled=contact.kind==='group';blockBtn.classList.toggle('hidden',contact.kind==='group');
@@ -550,4 +553,11 @@ async function mediaPanel(root, category){
       const obj=await response.json();if(!response.ok)throw new Error(typeof obj.detail==='string'?obj.detail:'Ошибка загрузки');upload.value='';await refresh();toast('Файл загружен');
     }catch(err){errorHandler(err);}},'primary');
   add(panel,upload,action,files);root.append(panel);await refresh();
+}
+
+/** Mount only Messenger without the wider Ecosystem catalog or navigation. */
+export async function mountStandaloneMessenger(root, context) {
+  ({ api, state, showToast: toast } = context);
+  root.replaceChildren();
+  await messenger(root);
 }
