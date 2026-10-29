@@ -37,7 +37,7 @@ jobs:
           if (!(Test-Path dist/Vainah-Ecosystem.exe)) { throw "Ecosystem EXE not created" }
       - uses: actions/upload-artifact@v4
         with:
-          name: Vainah-Windows-v0.7.0
+          name: Vainah-Windows-v0.8.0
           path: |
             dist/Vainah-Ecosystem.exe
             dist/Vainah-Messenger.exe
@@ -51,39 +51,60 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '21'
+          java-version: '17'
       - uses: android-actions/setup-android@v3
       - name: Install SDK
         run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '9.6.0'
+      - name: Show Android toolchain
+        run: |
+          java -version
+          gradle --version
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          sdkmanager --list_installed
       - name: Build both APK variants
         env:
           VAINAH_URL: ${{ vars.VAINAH_BASE_URL }}
         shell: bash
         run: |
           set -euo pipefail
+          mkdir -p android-ci-logs
           extra=()
-          if [ -n "$VAINAH_URL" ]; then
-            case "$VAINAH_URL" in
-              https://*) extra+=("-PVAINAH_BASE_URL=$VAINAH_URL") ;;
+          if [ -n "${VAINAH_URL}" ]; then
+            case "${VAINAH_URL}" in
+              https://*) extra+=("-PVAINAH_BASE_URL=${VAINAH_URL}") ;;
               *) echo 'VAINAH_BASE_URL must be an HTTPS URL'; exit 1 ;;
             esac
           else
-            echo 'VAINAH_BASE_URL missing: use adb reverse tcp:8000 tcp:8000 during local testing.'
+            echo 'VAINAH_BASE_URL missing: local debugging requires adb reverse tcp:8000 tcp:8000.'
           fi
-          gradle -p apps/android :app:assembleDebug "${extra[@]}" --no-daemon
+          echo '::group::Build Vainah Ecosystem'
+          gradle -p apps/android :app:assembleDebug "${extra[@]}" --stacktrace --warning-mode all --no-daemon 2>&1 | tee android-ci-logs/ecosystem.log
+          echo '::endgroup::'
           test -s apps/android/app/build/outputs/apk/debug/app-debug.apk
-          cp apps/android/app/build/outputs/apk/debug/app-debug.apk Vainah-Ecosystem-v0.7.0-debug.apk
-          gradle -p apps/android :app:assembleDebug "${extra[@]}" -PVAINAH_MESSENGER=true --rerun-tasks --no-daemon
+          cp apps/android/app/build/outputs/apk/debug/app-debug.apk Vainah-Ecosystem-v0.8.0-debug.apk
+          echo '::group::Build Vainah Messenger'
+          gradle -p apps/android :app:assembleDebug "${extra[@]}" -PVAINAH_MESSENGER=true --rerun-tasks --stacktrace --warning-mode all --no-daemon 2>&1 | tee android-ci-logs/messenger.log
+          echo '::endgroup::'
           test -s apps/android/app/build/outputs/apk/debug/app-debug.apk
-          cp apps/android/app/build/outputs/apk/debug/app-debug.apk Vainah-Messenger-v0.7.0-debug.apk
+          cp apps/android/app/build/outputs/apk/debug/app-debug.apk Vainah-Messenger-v0.8.0-debug.apk
+      - name: Upload Android diagnostics even when build fails
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Vainah-Android-build-diagnostics
+          path: |
+            android-ci-logs/
+            apps/android/app/build/reports/
+          if-no-files-found: warn
+          retention-days: 14
       - uses: actions/upload-artifact@v4
         with:
-          name: Vainah-Android-v0.7.0
+          name: Vainah-Android-v0.8.0
           path: |
-            Vainah-Ecosystem-v0.7.0-debug.apk
-            Vainah-Messenger-v0.7.0-debug.apk
+            Vainah-Ecosystem-v0.8.0-debug.apk
+            Vainah-Messenger-v0.8.0-debug.apk
           retention-days: 14
           if-no-files-found: error
