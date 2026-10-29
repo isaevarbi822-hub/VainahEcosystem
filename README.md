@@ -1,3 +1,30 @@
+# Vainah Messenger 0.8.0 — standalone preview
+
+**Новый сайт Messenger** запускается по `/` или `/app/messenger`. На нём больше нет каталога 11 приложений и Google-кнопки. Остальные приложения Vainah остаются в кодовой базе и доступны через собственные маршруты.
+
+### Что реализовано
+
+- Крупный адаптивный веб-сайт и самостоятельный интерфейс Vainah Messenger с оригинальными SVG-иконками и навигацией по чатам, каналам, ботам и профилю.
+- Вход и регистрация по email и паролю. Для немедленной регистрации без кода приглашения в Render требуется **`VAINAH_SIGNUP_MODE=open`**. Для приватного режима оставьте закрытую регистрацию и задайте `VAINAH_SIGNUP_CODE`.
+- Публичный каталог каналов для авторизованных пользователей; подписки и публикации владельца.
+- Простейшие боты с ответами на ключевые слова. Это не Telegram Bot API и не система выполнения внешнего кода.
+- Анимированная галочка **«Проверено Vainah»**, доступная только при проверке администратором. Чтобы выбрать администраторов, укажите через запятую их UUID из настроек профиля в `VAINAH_VERIFICATION_ADMIN_IDS`.
+- CSS учитывает `prefers-reduced-motion`: пользователи с отключённой анимацией не видят пульсацию галочки.
+
+### Android и Windows
+
+- Android-проект по-прежнему собирается через GitHub Actions: `.github/workflows/build-installers.yml`.
+- После неудачной Android-сборки скачайте artifact **`Vainah-Android-build-diagnostics`**. Его лог `android-ci-logs/ecosystem.log` или `messenger.log` содержит исходную ошибку Gradle.
+- Java 17 и Gradle 9.6 соответствуют Android Gradle Plugin 9.4.
+- **Готовый APK ещё не подтверждён**. Android Google Credential Manager и безопасная передача сессии в WebView пока не реализованы. Google-вход в браузере был убран из Messenger по пожеланию пользователя; вход по email продолжает работать. Для нативного Google-входа будет нужна отдельная реализация на Android и Windows.
+- Для EXE и APK требуется настроенный HTTPS URL Render (`VAINAH_BASE_URL`) и успешная сборка. На бесплатном Render ограничены ресурсы.
+
+### Перед публичным запуском
+
+Email пока не подтверждается ссылкой или кодом. Для открытой регистрации нужны защита от массового создания аккаунтов, подтверждение адреса и инструменты модерации. Каналы/боты и звонки — тестовые реализации. Сквозного шифрования нет, а фоновые push-уведомления не завершены.
+
+---
+
 > **Messenger 0.7.0:** authenticated WebSocket for foreground real-time updates; opt-in foreground browser alerts; experimental one-to-one WebRTC audio/video calling with own call controls. Calls require BOTH users to keep Messenger open on the same server worker, HTTPS, microphone/camera permission, and a compatible browser. ICE uses public STUN, **no TURN relay**: some internet/mobile networks will not connect. No Android push or always-on calling. Messages are still stored server-side and have no end-to-end encryption. See RELEASE-NOTES.md.
 
 > **Messenger 0.7.0:** обновлены диалоги, реакции, вложения, блокировка и отдельные точки сборки EXE/APK. Подробности: [MESSENGER-BUILD.md](MESSENGER-BUILD.md) и [RELEASE-NOTES.md](RELEASE-NOTES.md). Сообщения НЕ имеют сквозного шифрования.
