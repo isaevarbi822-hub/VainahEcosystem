@@ -30,18 +30,26 @@
     <main class="auth-panel">
       <div class="auth-card">
         <p class="eyebrow">VAINAH ID</p>
-        <h2 id="form-heading">С возвращением</h2>
-        <p id="form-subheading" class="muted">Войдите, чтобы открыть вашу экосистему.</p>
+        <h2 id="form-heading">Войти в Vainah</h2>
+        <p id="form-subheading" class="muted">Выберите способ входа в Vainah ID.</p>
+        <div class="auth-providers" aria-label="Способ входа">
+          <div id="auth-google-wrap" class="auth-google-wrap hidden">
+            <div id="auth-google-button" class="auth-google-button"></div>
+            <p id="auth-google-message" class="auth-helper hidden" role="status"></p>
+          </div>
+          <div id="google-disabled" class="auth-google-disabled" role="status">Вход через Google будет доступен после подключения в настройках сервера.</div>
+          <div class="auth-divider"><span>или войти через email</span></div>
+        </div>
         <form id="auth-form" autocomplete="on">
           <label id="name-group" class="field hidden"><span>Ваше имя</span><input id="signup-name" name="name" minlength="2" maxlength="80" autocomplete="name" placeholder="Как к вам обращаться" /></label>
           <label id="invite-group" class="field hidden"><span>Код приглашения (если есть)</span><input id="signup-invite" name="invite" autocomplete="off" maxlength="128" placeholder="Код для закрытого теста" /></label>
-          <label class="field"><span>Электронная почта</span><input id="email" name="email" type="email" autocomplete="email" required placeholder="you@example.com" /></label>
+          <label class="field"><span>Email</span><input id="email" name="email" type="email" autocomplete="email" required placeholder="you@example.com" /></label>
           <label class="field"><span>Пароль</span><input id="password" name="password" type="password" autocomplete="current-password" minlength="10" maxlength="128" required placeholder="Минимум 10 символов" /></label>
           <p id="auth-error" class="form-error hidden" role="alert"></p>
-          <button class="primary full" type="submit" id="auth-submit">Войти <span>↗</span></button>
+          <button class="primary full" type="submit" id="auth-submit">Войти через email <span>↗</span></button>
         </form>
         <p class="auth-switch"><span id="switch-question">Ещё нет аккаунта?</span> <button id="auth-mode-toggle" class="link-button" type="button">Создать Vainah ID</button></p>
-        <p class="micro-note">Первая версия для локального тестирования. Используйте отдельный пароль, не применяйте пароль от других сервисов.</p>
+        <p class="micro-note">Для входа по email нужен пароль Vainah ID. Пароль Google мы не запрашиваем и не сохраняем.</p>
       </div>
     </main>
   </div>
@@ -81,7 +89,8 @@
           <div class="page-header"><p class="eyebrow">ВАШ АККАУНТ</p><h1>Настройки Vainah ID</h1><p>Управляйте своим именем, паролем и активными сеансами. Электронную почту пока изменить нельзя.</p></div>
           <div class="settings-grid">
             <form id="profile-form" class="suite-panel"><h2 class="suite-title">Мой профиль</h2><label class="suite-field">Имя<input class="suite-input" id="profile-name" minlength="2" maxlength="80" required /></label><label class="suite-field">Email<input class="suite-input" id="profile-email" type="email" disabled /></label><button type="submit" class="primary">Сохранить имя</button></form>
-            <form id="password-form" class="suite-panel"><h2 class="suite-title">Безопасность</h2><label class="suite-field">Текущий пароль<input class="suite-input" id="current-password" type="password" autocomplete="current-password" minlength="10" required /></label><label class="suite-field">Новый пароль<input class="suite-input" id="new-password" type="password" autocomplete="new-password" minlength="10" required /></label><button type="submit" class="primary">Сменить пароль</button><p class="suite-help">После смены пароля остальные сеансы завершатся.</p><button type="button" id="logout-others" class="secondary-btn">Выйти на других устройствах</button></form>
+            <form id="password-form" class="suite-panel"><h2 class="suite-title">Безопасность</h2><label class="suite-field">Текущий пароль<input class="suite-input" id="current-password" type="password" autocomplete="current-password" minlength="10" required /></label><label class="suite-field">Новый пароль<input class="suite-input" id="new-password" type="password" autocomplete="new-password" minlength="10" required /></label><button type="submit" class="primary">Сменить пароль</button><p class="suite-help">После смены пароля остальные сеансы завершатся.</p><button type="button" id="logout-others" class="secondary-btn">Выйти на других устройствах</button>
+            <div id="google-link-section" class="google-settings hidden"><h3>Вход через Google</h3><p class="suite-help">Подключите Google-аккаунт с таким же email, чтобы входить двумя способами.</p><div id="google-link-button"></div><p id="google-link-message" role="status"></p></div></form>
           </div>
         </section>
         <section id="screen-feature" class="screen hidden"><div id="feature-root"></div></section>
