@@ -114,7 +114,7 @@ async function initGoogleLogin() {
   $('auth-google-wrap').classList.remove('hidden');
   // Google OAuth is blocked in embedded WebViews. Native platforms need an
   // OS-supported account picker or a secure system-browser login callback.
-  const embedded = Boolean(window.pywebview) || /; wv\\)/i.test(navigator.userAgent);
+  const embedded = Boolean(window.pywebview) || navigator.userAgent.includes('; wv)');
   if (embedded) {
     $('auth-google-message').textContent = 'Встроенное окно не поддерживает Google-вход. Откройте адрес Vainah в Chrome или Edge либо войдите через email.';
     $('auth-google-message').classList.remove('hidden');
