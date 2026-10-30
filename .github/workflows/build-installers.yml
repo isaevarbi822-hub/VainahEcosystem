@@ -26,7 +26,19 @@ jobs:
       - name: Run server tests
         env:
           ENVIRONMENT: development
-        run: python -m pytest -ra -vv services/api/tests
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p ci-test-logs
+          python -m pytest -ra -vv services/api/tests 2>&1 | tee ci-test-logs/pytest.log
+      - name: Upload pytest failure diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Vainah-Messenger-pytest-diagnostics
+          path: ci-test-logs/pytest.log
+          if-no-files-found: warn
+          retention-days: 14
   windows-exe:
     name: Windows EXE (Ecosystem + Messenger)
     runs-on: windows-latest
