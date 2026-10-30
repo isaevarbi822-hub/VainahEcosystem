@@ -13,7 +13,7 @@ from sqlalchemy import select, func
 from sqlalchemy.orm import Session
 
 from .database import get_db
-from .models import MessengerGroup, MessengerGroupMember, MessengerGroupMessage, MessengerGroupAttachment, User
+from .models import MessengerGroup, MessengerGroupMember, MessengerGroupMessage, MessengerGroupAttachment, VerifiedAccount, User
 from .messenger import block_exists, validate_send_rate, inform, MAX_UPLOAD, MEDIA_LIMITS, verified_upload_type
 from .handles import find_by_username
 from .security import current_user, csrf_protect, enforce_origin
@@ -148,8 +148,12 @@ def messages(group_id: str, before: int | None = None, db: Session = Depends(get
     rows = db.scalars(query.order_by(MessengerGroupMessage.created_at.desc(), MessengerGroupMessage.id.desc()).limit(80)).all()
     users = {u.id: u.display_name for u in db.scalars(select(User).where(
         User.id.in_({m.sender_id for m in rows}))).all()} if rows else {}
+    verified = set(db.scalars(select(VerifiedAccount.user_id).where(
+        VerifiedAccount.user_id.in_({m.sender_id for m in rows}))).all()) if rows else set()
     return {"items": [{"id": m.id, "mine": m.sender_id == user.id,
-             "sender": users.get(m.sender_id, "Участник"), "body": "" if m.deleted_at else m.body,
+             "sender": users.get(m.sender_id, "Участник"),
+             "sender_verified": m.sender_id in verified,
+             "body": "" if m.deleted_at else m.body,
              "deleted": bool(m.deleted_at), "created_at": m.created_at // 1000,
              "reactions": [], "read_at": None, "edited_at": None,
              "attachment": None if m.deleted_at else group_attachment_view(db,m),
