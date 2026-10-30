@@ -1543,6 +1543,7 @@ public final class NativeMessengerActivity extends Activity {
             canManage=error==null&&data.optBoolean("can_manage");
             if(verified){
                 profileHeading.addView(badge(),lp(22,22));
+                profileHeading.setContentDescription("Профиль Vainah: "+name(user)+", аккаунт подтверждён");
                 LinearLayout mark=row();mark.addView(text("Аккаунт подтверждён",15,TEXT,true));
                 mark.addView(badge(),lp(20,20));list.addView(mark);
             }
