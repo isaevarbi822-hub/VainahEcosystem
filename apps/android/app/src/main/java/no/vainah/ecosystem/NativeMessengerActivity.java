@@ -1466,6 +1466,7 @@ public final class NativeMessengerActivity extends Activity {
         LinearLayout profileHeading=row();profileHeading.setGravity(Gravity.CENTER);
         TextView display=text(name(user),28,TEXT,true);display.setGravity(Gravity.CENTER);
         profileHeading.addView(display);
+        profileHeading.setContentDescription("Профиль Vainah: "+name(user));
         hero.addView(profileHeading,lp(-1,43));space(hero,7);
         TextView emailLine=text(user.optString("email","Vainah ID"),14,MUTED,false);
         emailLine.setGravity(Gravity.CENTER);hero.addView(emailLine,lp(-1,27));space(hero,19);
