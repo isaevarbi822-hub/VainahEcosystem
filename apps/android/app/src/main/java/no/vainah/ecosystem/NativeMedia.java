@@ -173,12 +173,20 @@ public final class NativeMedia {
                             .setNeutralButton("Отмена",null);
                     if(eligible){
                         final String savedId=metadata.optString("upload_id");
+                        final String originalTarget=metadata.optString("target");
+                        final boolean originalGroup=metadata.optBoolean("group");
                         action.setPositiveButton("Отправить",(d,w)->{
+                            // The active conversation may change while this dialog is open.
+                            // Never route a recovered private recording to a new chat.
+                            if(!originalTarget.equals(contactId) || originalGroup!=groupChat){
+                                toast("Чат изменился. Откройте исходную переписку.");
+                                return;
+                            }
                             try{
                                 String mime=selected.getName().endsWith(".m4a")?"audio/mp4":"video/mp4";
                                 Uri uri=FileProvider.getUriForFile(activity,
                                         activity.getPackageName()+".media",selected);
-                                sendUriWithId(contactId,groupChat,uri,selected.getName(),mime,selected,savedId);
+                                sendUriWithId(originalTarget,originalGroup,uri,selected.getName(),mime,selected,savedId);
                             }catch(RuntimeException ex){
                                 toast("Не удалось открыть запись");
                             }
