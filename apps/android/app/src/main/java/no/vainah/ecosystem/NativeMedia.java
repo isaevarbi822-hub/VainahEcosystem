@@ -335,7 +335,7 @@ public final class NativeMedia {
                             .setPositiveButton("Повторить",(dialog,which)->
                                     sendUriWithId(target,group,uri,filename,mime,temp,uploadId))
                             .setNeutralButton("Закрыть",(dialog,which)->
-                                    toast("Запись осталась в приватном хранилище, но автоматическое восстановление ещё не реализовано"))
+                                    toast("Запись сохранена. Откройте «＋» → «Неотправленные записи», чтобы отправить её позже"))
                             .setNegativeButton("Удалить",(dialog,which)->{
                                 if(temp.delete())forgetPending(temp);
                             })
