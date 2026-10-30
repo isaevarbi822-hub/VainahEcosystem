@@ -9,6 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text as sql_text
 from sqlalchemy.exc import SQLAlchemyError
 from . import models  # noqa: F401; register SQLAlchemy models before create_all
+from . import public_ids  # noqa: F401; register unique numeric IDs before create_all
 from .auth import router as auth_router
 from .database import create_session_factory
 from .notes import router as notes_router
