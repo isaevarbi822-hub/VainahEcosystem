@@ -16,6 +16,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Uplo
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 from sqlalchemy import and_, or_, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from .database import get_db
@@ -354,7 +355,23 @@ async def send_file(request: Request, contact_id: str = Form(...), file: UploadF
     if upload_id:
         db.add(MediaUploadRequest(sender_id=user.id, request_key=upload_id,
                                   fingerprint=digest, message_id=msg.id))
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        if not upload_id:
+            raise
+        # A concurrent request may have committed the same idempotency key.
+        # Return its message instead of leaking a database error or duplicating it.
+        prior = db.scalar(select(MediaUploadRequest).where(
+            MediaUploadRequest.sender_id == user.id,
+            MediaUploadRequest.request_key == upload_id))
+        if prior is None or prior.fingerprint != digest:
+            raise HTTPException(409, "Upload identifier conflict")
+        original = db.get(DirectMessage, prior.message_id)
+        if original is None:
+            raise HTTPException(409, "Original message unavailable")
+        return view_message(db, original, user.id)
     db.refresh(msg)
     inform(request, [user.id, contact_id], "message.changed", contact_id=user.id, sender_id=user.id)
     return view_message(db, msg, user.id)
