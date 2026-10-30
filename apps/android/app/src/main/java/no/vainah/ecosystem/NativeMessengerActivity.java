@@ -589,7 +589,12 @@ public final class NativeMessengerActivity extends Activity {
                 android.content.res.ColorStateList.valueOf(0x303aaaff),
                 shape(PANEL,16),null);
         item.setBackground(ripple);
+        item.setFocusable(true);
         item.setOnClickListener(v->{
+            if(android.os.Build.VERSION.SDK_INT>=26 && !android.animation.ValueAnimator.areAnimatorsEnabled()){
+                click.run();
+                return;
+            }
             item.animate().cancel();
             item.animate().scaleX(.985f).scaleY(.985f).setDuration(85)
                     .withEndAction(()->{
