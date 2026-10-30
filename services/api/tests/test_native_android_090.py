@@ -49,7 +49,7 @@ def test_native_messenger_091_groups_and_safe_navigation():
     assert 'if(threadEpoch!=generation)return;' in native
     assert "stickToBottom" in native
     assert 'inDetail' in native
-    assert "versionName '0.9.3'" in gradle
+    assert "versionName '0.9.4'" in gradle
 
 
 def test_native_092_usernames_and_invites():
@@ -69,3 +69,11 @@ def test_native_messenger_093_design_and_apple_oauth():
     assert "/api/auth/apple/start" in native
     assert "/api/auth/apple/exchange" in native
     assert 'android:scheme="vainah-messenger"' in manifest
+
+def test_native_messenger_094_permanent_numeric_id():
+    native = (SOURCE / "NativeMessengerActivity.java").read_text(encoding="utf-8")
+    assert "numericId.setText(numeric)" in native
+    assert 'ClipData.newPlainText("Vainah ID",number)' in native
+    assert '"/api/people/id/"' in native
+    gradle = (ANDROID / "build.gradle").read_text(encoding="utf-8")
+    assert "versionName '0.9.4'" in gradle
