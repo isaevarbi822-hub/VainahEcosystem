@@ -1,4 +1,4 @@
-# Vainah Messenger Android 0.9.2 — нативное приложение
+# Vainah Messenger Android 0.9.3 — нативное приложение
 
 В Messenger на Android используется **NativeMessengerActivity**, настоящие Android Views и системный Google Credential Manager. Никаких WebView, экранов ввода адреса сайта или HTML-приложения. Отдельный старый `Vainah Ecosystem` APK пока остаётся WebView, потому что его изменение не входило в этот этап.
 
@@ -55,7 +55,7 @@ GitHub → Settings → Secrets and variables → Actions → **Secrets**:
 
 GitHub → Actions → **Build Vainah EXE and APK** → Run workflow. Задание Android сначала компилирует нативный вариант, затем не публикует Android APK, если отсутствуют обязательные публичные переменные или постоянная подпись. Это предохраняет от скачивания APK с нерабочей авторизацией.
 
-Скачайте artifact `Vainah-Android-v0.9.2`, распакуйте ZIP и установите **`Vainah-Messenger-v0.9.2-debug.apk`**. Тестируйте на телефоне, используя реальный HTTPS API. Сайт открывать не требуется.
+Скачайте artifact `Vainah-Android-v0.9.3`, распакуйте ZIP и установите **`Vainah-Messenger-v0.9.3-debug.apk`**. Тестируйте на телефоне, используя реальный HTTPS API. Сайт открывать не требуется.
 
 ## Ограничения текущего MVP
 
@@ -63,10 +63,29 @@ GitHub → Actions → **Build Vainah EXE and APK** → Run workflow. Задан
 - В этом нативном Android выпуске нет готовых системных push-уведомлений, фонового WebSocket, голосовых/видеозвонков, загрузки медиа и сквозного шифрования. Веб-реализация некоторых из этих функций не означает, что они работают в нативной Android Activity.
 - Не проверено на реальном телефоне до установки пользователем. Успешная CI-компиляция не заменяет устройство.
 
-## 0.9.2 — публичные @username
+## 0.9.3 — публичные @username
 
 - Пользователь назначает уникальное имя в Android → Настройки. Имя 5–32 символа: латиница, цифры и `_`, начинается с буквы.
 - В поиске чатов можно искать по `@username`, при этом email не раскрывается. Имена не создаются автоматически и доступны после добровольного назначения.
 - Группы создаются с приглашением участников по `@username`; владелец может приглашать новых участников в существующую группу.
 - Владелец канала может отправить приглашение по `@username`. Адресат принимает или отклоняет его в разделе Каналы, автоматической подписки нет.
 - База данных дополняется новыми таблицами `messenger_user_handles` и `messenger_channel_invitations` через существующий `Base.metadata.create_all`. Для полноценного production-развёртывания в дальнейшем нужна Alembic миграция.
+
+## Native UI & Apple ID 0.9.3
+
+Native dark interface: Chats, Contacts, Settings and Profile. Filter tabs show personal chats, groups, channels and bots. Search by voluntary public @username; edit profile display name.
+
+Apple ID is an optional, server-verified OAuth login using the system browser, not WebView. Apple requires a developer team with a Sign in with Apple App ID, associated Services ID, registered HTTPS domain/return URL, Team ID, Key ID and private .p8 key.
+
+Set on the Render API service only (never in the public GitHub repo or APK):
+- APPLE_SERVICE_ID: Services ID from Apple Developer
+- APPLE_TEAM_ID: Apple Team ID
+- APPLE_KEY_ID: Sign in with Apple Key ID
+- APPLE_PRIVATE_KEY_P8: full private key PEM text (.p8)
+- APPLE_REDIRECT_URI: https://vainahecosystem.onrender.com/api/auth/apple/callback (or your exact registered HTTPS callback)
+
+APP_ORIGIN must match the HTTPS server origin. The callback is an Apple form_post, and the browser returns to vainah-messenger://auth/apple via a one-use, app-bound proof. Until Apple Developer setup is complete, the login UI explains that Apple sign-in is unavailable. Existing Google/email accounts with the same email will not be silently linked.
+
+Setup: https://developer.apple.com/help/account/capabilities/configure-sign-in-with-apple-for-the-web
+
+The Android app must be tested on a real device; successful compilation alone does not validate Apple credentials.
