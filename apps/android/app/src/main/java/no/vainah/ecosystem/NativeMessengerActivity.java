@@ -60,6 +60,7 @@ public final class NativeMessengerActivity extends Activity {
     private String currentThreadId = "";
     private boolean currentThreadIsGroup = false;
     private TextView currentThreadSubtitle;
+    private String threadNormalSubtitle="Личный чат";
     private long lastTypingSentMs = 0;
     private int typingGeneration = 0;
     private boolean isForeground = false;
@@ -661,6 +662,7 @@ public final class NativeMessengerActivity extends Activity {
         String normalSubtitle=group?"Групповая переписка":
                 (contact.optString("username","").isEmpty()?"Личный чат":
                         "@"+contact.optString("username"));
+        threadNormalSubtitle=normalSubtitle;
         showDetail(name(contact),contact.optBoolean("verified"),normalSubtitle);
         if(root.getChildCount()>1 && root.getChildAt(1) instanceof TextView)
             currentThreadSubtitle=(TextView)root.getChildAt(1);
@@ -728,8 +730,10 @@ public final class NativeMessengerActivity extends Activity {
                     String content=message.optString("body","");
                     if(group && !message.optBoolean("mine") && !message.optBoolean("deleted"))
                         content=message.optString("sender","Участник")+":\n"+content;
-                    addBubble(messages,content,message.optBoolean("mine"),
-                            formatTime(message.optLong("created_at")),message.optBoolean("deleted"));
+                    boolean own=message.optBoolean("mine");
+                    boolean read=!message.isNull("read_at") && message.optLong("read_at")>0;
+                    addBubble(messages,content,own,
+                            formatTime(message.optLong("created_at")),message.optBoolean("deleted"),read);
                 }
                 if(stickToBottom)scroll.post(()->{
                     if(threadEpoch==generation)scroll.fullScroll(View.FOCUS_DOWN);
@@ -863,6 +867,9 @@ public final class NativeMessengerActivity extends Activity {
     }
 
     private void addBubble(LinearLayout panel,String body,boolean mine,String timestamp,boolean deleted){
+        addBubble(panel,body,mine,timestamp,deleted,false);
+    }
+    private void addBubble(LinearLayout panel,String body,boolean mine,String timestamp,boolean deleted,boolean read){
         LinearLayout line=row();line.setGravity(mine?Gravity.RIGHT:Gravity.LEFT);
         TextView bubble=text(deleted?"Сообщение удалено":body,15,TEXT,false);
         pad(bubble,14,10,14,10);bubble.setMaxWidth(dp(300));
@@ -870,7 +877,9 @@ public final class NativeMessengerActivity extends Activity {
         LinearLayout.LayoutParams cell=lp(-2,-2);cell.setMargins(0,dp(5),0,dp(5));
         line.addView(bubble,cell);panel.addView(line,lp(-1,-2));
         if(!timestamp.isEmpty()){
-            TextView label=text(timestamp,10,MUTED,false);label.setGravity(mine?Gravity.RIGHT:Gravity.LEFT);
+            TextView label=text(mine ? timestamp+(deleted?"":"  "+(read?"✓✓":"✓")) : timestamp,10,
+                    read&&mine?BLUE:MUTED,false);
+            label.setGravity(mine?Gravity.RIGHT:Gravity.LEFT);
             panel.addView(label,lp(-1,-2));
         }
     }
@@ -1248,7 +1257,7 @@ public final class NativeMessengerActivity extends Activity {
         if(type.equals("typing") && inDetail && !currentThreadIsGroup &&
                 currentThreadId.equals(event.optString("from")) && currentThreadSubtitle!=null){
             TextView indicator=currentThreadSubtitle;
-            String standard="Личный чат";
+            String standard=threadNormalSubtitle;
             int localGeneration=++typingGeneration;
             indicator.setText("печатает…");
             handler.postDelayed(()->{
