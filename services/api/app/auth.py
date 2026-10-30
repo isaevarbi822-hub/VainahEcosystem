@@ -10,6 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from .database import get_db
+from .public_ids import get_or_create_public_id
 from .models import User, LoginSession, LinkedIdentity, VerifiedAccount
 from .schemas import Credentials, Signup, ProfileUpdate, PasswordChange
 from pydantic import BaseModel, Field
@@ -22,9 +23,12 @@ from .security import (COOKIE_NAME, SESSION_SECONDS, csrf_protect, current_sessi
 router = APIRouter(prefix="/api/auth", tags=["Vainah ID"])
 
 
-def public_user(user: User):
-    return {"id": user.id, "email": user.email, "display_name": user.display_name,
-            "created_at": user.created_at}
+def public_user(user: User, db: Session | None = None):
+    account = {"id": user.id, "email": user.email, "display_name": user.display_name,
+               "created_at": user.created_at}
+    if db is not None:
+        account["vainah_id"] = get_or_create_public_id(db, user.id)
+    return account
 
 
 def issue_cookie(response: Response, token: str):
@@ -53,7 +57,7 @@ def register(data: Signup, request: Request, response: Response, db: Session = D
     count_auth_attempt("register", caller)
     token, csrf = start_session(db, user)
     issue_cookie(response, token)
-    return {"user": public_user(user), "csrf_token": csrf}
+    return {"user": public_user(user, db), "csrf_token": csrf}
 
 
 @router.post("/login")
@@ -67,12 +71,13 @@ def login(data: Credentials, request: Request, response: Response, db: Session =
     clear_login_attempts(data.email)
     token, csrf = start_session(db, user)
     issue_cookie(response, token)
-    return {"user": public_user(user), "csrf_token": csrf}
+    return {"user": public_user(user, db), "csrf_token": csrf}
 
 
 @router.get("/me")
-def me(user: User = Depends(current_user), session: LoginSession = Depends(current_session)):
-    return {"user": public_user(user), "csrf_token": session.csrf_token}
+def me(user: User = Depends(current_user), session: LoginSession = Depends(current_session),
+       db: Session = Depends(get_db)):
+    return {"user": public_user(user, db), "csrf_token": session.csrf_token}
 
 
 @router.post("/logout", dependencies=[Depends(csrf_protect)])
@@ -94,7 +99,7 @@ def update_profile(data: ProfileUpdate, request: Request, db: Session = Depends(
     enforce_origin(request)
     user.display_name = data.display_name
     db.commit()
-    return {"user": public_user(user)}
+    return {"user": public_user(user, db)}
 
 
 @router.post("/password", dependencies=[Depends(csrf_protect)])
@@ -172,7 +177,7 @@ def login_google(data: GoogleCredential, request: Request, response: Response,
         count_auth_attempt("register", caller)
     token, csrf = start_session(db, user)
     issue_cookie(response, token)
-    return {"user": public_user(user), "csrf_token": csrf}
+    return {"user": public_user(user, db), "csrf_token": csrf}
 
 
 @router.post("/google/link", dependencies=[Depends(csrf_protect)])
