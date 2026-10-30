@@ -2,6 +2,10 @@ package no.vainah.ecosystem;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.content.Intent;
+import android.content.ActivityNotFoundException;
+import android.net.Uri;
+import android.util.Base64;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
@@ -30,6 +34,9 @@ import org.json.JSONObject;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
+import java.security.SecureRandom;
+import java.security.MessageDigest;
+import java.nio.charset.StandardCharsets;
 
 /**
  * Vainah Messenger's first real Android implementation.
@@ -57,6 +64,7 @@ public final class NativeMessengerActivity extends Activity {
     private boolean inDetail = false;
     private int generation = 0;
     private Runnable pendingPeopleSearch;
+    private String pendingAppleState="", pendingAppleVerifier="";
     private final Handler handler = new Handler(Looper.getMainLooper());
 
     private int dp(float n) { return (int) (getResources().getDisplayMetrics().density * n + .5f); }
@@ -128,6 +136,7 @@ public final class NativeMessengerActivity extends Activity {
         if(endpoint.startsWith("https://") && !endpoint.contains("127.0.0.1") && !endpoint.contains("localhost"))
             api=new NativeApi(this,endpoint);
         showLogin();
+        if(getIntent()!=null && getIntent().getData()!=null)handleAppleReturn(getIntent());
         if(api!=null && api.hasSession()){
             request("GET","/api/auth/me",null,(data,error)->{
                 if(error==null){user=data.optJSONObject("user");if(user==null)user=new JSONObject();showHome("chats");}
@@ -147,7 +156,14 @@ public final class NativeMessengerActivity extends Activity {
         body.addView(text("Ваши сообщения. Ваши правила.",15,MUTED,false));space(body,34);
         TextView top=text("Войти в Vainah",22,TEXT,true);body.addView(top);space(body,9);
         body.addView(text("Вход через Google или email. Без открытия сайта.",13,MUTED,false));space(body,22);
-        Button google=button("Продолжить с Google",true);body.addView(google,lp(-1,54));space(body,18);
+        Button google=button("Продолжить с Google",true);body.addView(google,lp(-1,54));space(body,10);
+        Button apple=button("Продолжить с Apple ID",false);body.addView(apple,lp(-1,54));space(body,20);
+        apple.setOnClickListener(v->beginAppleLogin());
+        if(api!=null)request("GET","/api/auth/apple/config",null,(data,error)->{
+            if(error==null && !data.optBoolean("enabled")){
+                apple.setText("Apple ID · требуется настройка сервера");
+            }
+        });
         TextView divider=text("ИЛИ ВОЙТИ ЧЕРЕЗ EMAIL",11,MUTED,true);divider.setGravity(Gravity.CENTER);
         body.addView(divider);space(body,18);
         EditText displayName=field("Ваше имя",false);displayName.setVisibility(View.GONE);
@@ -201,8 +217,56 @@ public final class NativeMessengerActivity extends Activity {
         });
         if(api==null) {
             error.setText("Сервер Vainah не задан в сборке. Для чатов нужен HTTPS API; сайт открывать не требуется.");
-            emailSubmit.setEnabled(false);google.setEnabled(false);
+            emailSubmit.setEnabled(false);google.setEnabled(false);apple.setEnabled(false);
         }
+    }
+
+    private void beginAppleLogin(){
+        if(api==null){notice("Сервер Vainah не настроен");return;}
+        byte[] random=new byte[32];new SecureRandom().nextBytes(random);
+        pendingAppleVerifier=Base64.encodeToString(random,Base64.URL_SAFE|Base64.NO_WRAP|Base64.NO_PADDING);
+        try {
+            MessageDigest sha=MessageDigest.getInstance("SHA-256");
+            String challenge=Base64.encodeToString(
+                    sha.digest(pendingAppleVerifier.getBytes(StandardCharsets.UTF_8)),
+                    Base64.URL_SAFE|Base64.NO_WRAP|Base64.NO_PADDING);
+            request("POST","/api/auth/apple/start",json("challenge",challenge),(data,error)->{
+                if(error!=null){pendingAppleVerifier="";notice(error);return;}
+                String address=data.optString("url",""),state=data.optString("state","");
+                Uri link=Uri.parse(address);
+                if(!"https".equals(link.getScheme())||!"appleid.apple.com".equals(link.getHost())
+                        ||state.length()<32){
+                    pendingAppleVerifier="";notice("Некорректная ссылка на Apple ID");return;
+                }
+                pendingAppleState=state;
+                try {
+                    Intent browser=new Intent(Intent.ACTION_VIEW,link);
+                    browser.addCategory(Intent.CATEGORY_BROWSABLE);
+                    startActivity(browser);
+                }catch(ActivityNotFoundException failure){notice("Не найден браузер для входа Apple");}
+            });
+        }catch(Exception failure){pendingAppleVerifier="";notice("Не удалось подготовить Apple ID");}
+    }
+
+    @Override protected void onNewIntent(Intent intent){
+        super.onNewIntent(intent);setIntent(intent);handleAppleReturn(intent);
+    }
+    private void handleAppleReturn(Intent intent){
+        Uri uri=intent==null?null:intent.getData();
+        if(uri==null||!"vainah-messenger".equals(uri.getScheme())||
+                !"auth".equals(uri.getHost())||!"/apple".equals(uri.getPath()))return;
+        String state=uri.getQueryParameter("state");
+        if(state==null||!state.equals(pendingAppleState)||pendingAppleVerifier.isEmpty()){
+            notice("Срок входа Apple истёк. Начните вход ещё раз.");return;
+        }
+        String verifier=pendingAppleVerifier;
+        pendingAppleVerifier="";pendingAppleState="";
+        request("POST","/api/auth/apple/exchange",json("state",state,"verifier",verifier),(data,error)->{
+            if(error!=null){notice(error);showLogin();return;}
+            user=data.optJSONObject("user");
+            if(user==null)user=new JSONObject();
+            showHome("chats");
+        });
     }
 
     private void showNetworkError(String error){
