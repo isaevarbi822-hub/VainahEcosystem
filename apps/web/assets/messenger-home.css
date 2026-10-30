@@ -156,3 +156,115 @@ body.messenger-only{margin:0;background:var(--vm-bg);color:var(--vm-ink);font:15
   .messenger-only .vm-community-list{padding-bottom:98px}
 }
 @media(prefers-reduced-motion:reduce){.vm-workspace .vchat-contact{transition:none}}
+
+
+/* Aurora motion system: smooth, low-cost transforms and accessible focus states. */
+.messenger-only{
+  --aurora-duration:220ms;
+  --aurora-ease:cubic-bezier(.2,.8,.2,1);
+  --aurora-focus:#82c7ff;
+}
+.messenger-only .vm-rail-item,
+.messenger-only .vchat-contact,
+.messenger-only .vchat-filter,
+.messenger-only .vm-floating-compose,
+.messenger-only .vchat-composer button{
+  transition:background-color var(--aurora-duration) ease,
+    color var(--aurora-duration) ease,
+    box-shadow var(--aurora-duration) ease,
+    transform var(--aurora-duration) var(--aurora-ease);
+}
+.messenger-only .vchat-contact:hover{background:rgba(88,155,232,.10)}
+.messenger-only .vchat-contact:active,
+.messenger-only .vm-rail-item:active,
+.messenger-only .vchat-composer button:active{transform:scale(.985)}
+.messenger-only .vm-floating-compose:hover{
+  transform:translateY(-3px);
+  box-shadow:0 14px 34px rgba(0,106,217,.32);
+}
+.messenger-only .vchat-contact:focus-visible,
+.messenger-only .vchat-filter:focus-visible,
+.messenger-only .vm-floating-compose:focus-visible,
+.messenger-only .vchat-composer button:focus-visible{
+  outline:3px solid var(--aurora-focus);
+  outline-offset:2px;
+}
+.messenger-only .vchat-area{
+  animation:aurora-enter 260ms var(--aurora-ease) both;
+}
+.messenger-only .vchat-contact.active{
+  box-shadow:inset 3px 0 0 #60b6ff;
+}
+@keyframes aurora-enter{
+  from{opacity:.65;transform:translateY(8px)}
+  to{opacity:1;transform:translateY(0)}
+}
+@media(max-width:700px){
+  .messenger-only .vchat.thread-open .vchat-area{
+    animation:aurora-chat-enter 240ms var(--aurora-ease) both;
+  }
+  @keyframes aurora-chat-enter{
+    from{opacity:.7;transform:translateX(16px)}
+    to{opacity:1;transform:translateX(0)}
+  }
+}
+@media(prefers-reduced-motion:reduce){
+  .messenger-only .vchat-area,
+  .messenger-only .vchat.thread-open .vchat-area{animation:none!important}
+  .messenger-only .vchat-contact,
+  .messenger-only .vchat-filter,
+  .messenger-only .vm-rail-item,
+  .messenger-only .vm-floating-compose,
+  .messenger-only .vchat-composer button{transition:none!important}
+}
+
+
+/* Aurora conversation surfaces: visual hierarchy without modifying messaging logic. */
+.messenger-only .vchat-sidebar{background:linear-gradient(180deg,#111b30,#0b1527)}
+.messenger-only .vchat-contact{position:relative;border-radius:14px}
+.messenger-only .vchat-contact.active{background:linear-gradient(100deg,rgba(52,126,214,.19),rgba(52,126,214,.06))}
+.messenger-only .vchat-avatar{box-shadow:inset 0 1px 0 rgba(255,255,255,.16),0 3px 12px rgba(0,0,0,.14)}
+.messenger-only .vchat-header{background:rgba(19,30,50,.94);border-bottom:1px solid rgba(138,173,225,.13)}
+.messenger-only .vchat-composer{background:rgba(18,28,47,.97);border-top:1px solid rgba(138,173,225,.12)}
+.messenger-only .vchat-composer textarea{
+  border-radius:20px;transition:border-color 180ms ease,box-shadow 180ms ease;
+}
+.messenger-only .vchat-composer textarea:focus-visible{
+  outline:2px solid rgba(119,185,255,.75);outline-offset:1px;
+}
+.messenger-only .vchat-filter.active{box-shadow:0 4px 14px rgba(28,111,230,.2)}
+.messenger-only .vchat-verified{filter:drop-shadow(0 1px 4px rgba(82,168,255,.2))}
+@media(prefers-reduced-motion:reduce){
+  .messenger-only .vchat-composer textarea{transition:none!important}
+}
+
+/* Keyboard-first chat controls and safer touch targets. */
+.messenger-only .vchat-header-actions button,
+.messenger-only .vchat-composer button{min-width:42px;min-height:42px;touch-action:manipulation}
+.messenger-only .vchat-contact{touch-action:manipulation;scroll-margin-block:10px}
+.messenger-only .vchat-contact:focus-visible{background:rgba(80,150,235,.14)}
+@media(max-width:700px){
+ .messenger-only .vchat-contact{min-height:76px}
+ .messenger-only .vchat-header-actions button{min-width:44px;min-height:44px}
+}
+
+/* Aurora mobile viewport: safe area, compact content and predictable scrolling. */
+@media(max-width:700px){
+  .messenger-only .vm-app-rail{
+    padding-bottom:max(8px,env(safe-area-inset-bottom));
+  }
+  .messenger-only .vm-floating-compose{
+    bottom:calc(93px + env(safe-area-inset-bottom));
+    right:max(18px,env(safe-area-inset-right));
+  }
+  .messenger-only .vchat-sidebar{overscroll-behavior:contain}
+  .messenger-only .vchat-contacts{overscroll-behavior-y:contain}
+  .messenger-only .vchat-composer{
+    padding-left:max(9px,env(safe-area-inset-left));
+    padding-right:max(9px,env(safe-area-inset-right));
+  }
+  .messenger-only .vchat-header{
+    padding-left:max(10px,env(safe-area-inset-left));
+    padding-right:max(10px,env(safe-area-inset-right));
+  }
+}

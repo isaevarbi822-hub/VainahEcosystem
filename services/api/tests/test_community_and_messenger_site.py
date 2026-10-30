@@ -69,7 +69,10 @@ def test_verified_badge_admin_only(tmp_path, monkeypatch):
         route="/api/messenger/v2/verification/manage"
         assert user.post(route,json={"user_id":user_id,"verified":True},
                          headers=user_headers).status_code==403
-        monkeypatch.setenv("VAINAH_VERIFICATION_ADMIN_IDS",admin_id)
+        monkeypatch.setenv("VAINAH_VERIFICATION_ADMIN_IDS",user_id)
+        monkeypatch.setenv("VAINAH_OWNER_USER_ID",admin_id)
+        assert admin.get("/api/messenger/v2/verification/me").json()["verified"] is True
+        assert admin.get("/api/messenger/v2/verification/me").json()["can_manage"] is True
         assert admin.post(route,json={"user_id":user_id,"verified":True},
                           headers=admin_headers).status_code==200
         assert user.get("/api/messenger/v2/verification/me").json()["verified"] is True
@@ -92,4 +95,30 @@ def test_landing_page_hides_catalog_and_google_buttons(tmp_path, monkeypatch):
         assert "Продолжить с Google" not in response.text
         assert client.get("/assets/messenger-home.css").status_code==200
         assert client.get("/assets/messenger-app.js").status_code==200
+    app.state.engine.dispose()
+
+
+def test_session_revoke_only_own_other_session(tmp_path, monkeypatch):
+    monkeypatch.setenv("VAINAH_SIGNUP_MODE", "open")
+    app = create_app(f"sqlite:///{tmp_path / 'sessions.db'}")
+    with TestClient(app) as alice, TestClient(app) as second, TestClient(app) as bob:
+        alice_id, ah = register(alice, "alice-sessions@example.com")
+        bob_id, bh = register(bob, "bob-sessions@example.com")
+        login = second.post("/api/auth/login", json={
+            "email": "alice-sessions@example.com",
+            "password": "safe-test-password-2026"})
+        assert login.status_code == 200, login.text
+        listing = alice.get("/api/auth/sessions")
+        assert listing.status_code == 200
+        entries = listing.json()["items"]
+        assert len(entries) == 2
+        own = next(item for item in entries if item["current"])
+        other = next(item for item in entries if not item["current"])
+        route = f"/api/auth/sessions/{other['id']}/revoke"
+        assert bob.post(route, headers=bh).status_code == 404
+        assert alice.post(f"/api/auth/sessions/{own['id']}/revoke",
+                          headers=ah).status_code == 409
+        assert alice.post(route, headers=ah).status_code == 200
+        assert len(alice.get("/api/auth/sessions").json()["items"]) == 1
+        assert second.get("/api/auth/me").status_code in (401, 403)
     app.state.engine.dispose()

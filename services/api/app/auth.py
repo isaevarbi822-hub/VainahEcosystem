@@ -119,6 +119,41 @@ def update_password(data: PasswordChange, request: Request, db: Session = Depend
     return {"ok": True, "revoked_sessions": len(other_sessions)}
 
 
+@router.get("/sessions")
+def list_sessions(user: User = Depends(current_user),
+                  session: LoginSession = Depends(current_session),
+                  db: Session = Depends(get_db)):
+    """List active sessions without exposing tokens, IPs or credentials."""
+    import time
+    records = db.scalars(select(LoginSession).where(
+        LoginSession.user_id == user.id,
+        LoginSession.expires_at > int(time.time())
+    ).order_by(LoginSession.created_at.desc())).all()
+    return {"items": [
+        {"id": row.id, "current": row.id == session.id,
+         "created_at": row.created_at, "expires_at": row.expires_at}
+        for row in records
+    ]}
+
+
+@router.post("/sessions/{session_id}/revoke", dependencies=[Depends(csrf_protect)])
+def revoke_session(session_id: str, request: Request,
+                   user: User = Depends(current_user),
+                   session: LoginSession = Depends(current_session),
+                   db: Session = Depends(get_db)):
+    """Revoke only a session owned by the caller, never the current session."""
+    enforce_origin(request)
+    if session_id == session.id:
+        raise HTTPException(409, "Use logout to end the current session")
+    target = db.scalar(select(LoginSession).where(
+        LoginSession.id == session_id, LoginSession.user_id == user.id))
+    if target is None:
+        raise HTTPException(404, "Session not found")
+    db.delete(target)
+    db.commit()
+    return {"ok": True}
+
+
 @router.post("/logout-others", dependencies=[Depends(csrf_protect)])
 def logout_others(request: Request, db: Session = Depends(get_db),
                   user: User = Depends(current_user), session: LoginSession = Depends(current_session)):

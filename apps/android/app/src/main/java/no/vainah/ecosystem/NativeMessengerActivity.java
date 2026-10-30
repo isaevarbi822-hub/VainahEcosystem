@@ -553,6 +553,7 @@ public final class NativeMessengerActivity extends Activity {
     }
     private TextView badge(){
         TextView badge=text("✓",12,TEXT,true);badge.setGravity(Gravity.CENTER);
+        badge.setContentDescription("Проверено Vainah");
         badge.setBackground(shape(BLUE,30));
         if(android.animation.ValueAnimator.areAnimatorsEnabled()){
             Animation pulse=new AlphaAnimation(1f,.72f);
@@ -589,7 +590,12 @@ public final class NativeMessengerActivity extends Activity {
                 android.content.res.ColorStateList.valueOf(0x303aaaff),
                 shape(PANEL,16),null);
         item.setBackground(ripple);
+        item.setFocusable(true);
         item.setOnClickListener(v->{
+            if(android.os.Build.VERSION.SDK_INT>=26 && !android.animation.ValueAnimator.areAnimatorsEnabled()){
+                click.run();
+                return;
+            }
             item.animate().cancel();
             item.animate().scaleX(.985f).scaleY(.985f).setDuration(85)
                     .withEndAction(()->{
@@ -739,7 +745,7 @@ public final class NativeMessengerActivity extends Activity {
         FrameLayout messagesFrame=new FrameLayout(this);
         root.addView(messagesFrame,new LinearLayout.LayoutParams(-1,0,1));
         ScrollView scroll=new ScrollView(this);messagesFrame.addView(scroll,new FrameLayout.LayoutParams(-1,-1));
-        LinearLayout messages=column();pad(messages,14,15,14,15);scroll.addView(messages);
+        LinearLayout messages=column();pad(messages,16,18,16,18);messages.setBackgroundColor(BG);scroll.setFillViewport(true);scroll.addView(messages);
         final String[] replyingTo={""};
         TextView replyingBanner=text("",13,BLUE,false);
         pad(replyingBanner,19,10,19,10);
@@ -749,7 +755,7 @@ public final class NativeMessengerActivity extends Activity {
         replyingBanner.setOnClickListener(v->{
             replyingTo[0]="";replyingBanner.setVisibility(View.GONE);
         });
-        LinearLayout composer=row();pad(composer,7,8,7,12);composer.setBackgroundColor(PANEL);root.addView(composer,lp(-1,76));
+        LinearLayout composer=row();pad(composer,10,9,10,12);composer.setBackground(border(PANEL,22));root.addView(composer,lp(-1,76));
         {
             Button attach=button("＋",false);
             attach.setTextSize(24);
@@ -1027,10 +1033,19 @@ public final class NativeMessengerActivity extends Activity {
     private LinearLayout addBubble(LinearLayout panel,String body,boolean mine,String timestamp,boolean deleted,boolean read){
         LinearLayout line=row();line.setGravity(mine?Gravity.RIGHT:Gravity.LEFT);
         TextView bubble=text(deleted?"Сообщение удалено":body,15,TEXT,false);
-        pad(bubble,14,10,14,10);bubble.setMaxWidth(dp(300));
-        bubble.setBackground(shape(mine?0xff3e5baf:PANEL2,16));
+        pad(bubble,16,12,16,12);bubble.setMaxWidth(dp(320));
+        bubble.setLineSpacing(dp(2),1.0f);
+        bubble.setBackground(shape(mine?0xff295c9b:0xff26364c,19));
         LinearLayout.LayoutParams cell=lp(-2,-2);cell.setMargins(0,dp(5),0,dp(5));
         line.addView(bubble,cell);panel.addView(line,lp(-1,-2));
+        // Animate only the newest message, not every item during history refresh.
+        if(panel.getChildCount()==1 && android.os.Build.VERSION.SDK_INT>=26
+                && android.animation.ValueAnimator.areAnimatorsEnabled()){
+            line.setAlpha(0f);
+            line.setTranslationY(dp(7));
+            line.animate().alpha(1f).translationY(0f).setDuration(170)
+                    .setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
+        }
         if(!timestamp.isEmpty()){
             TextView label=text(mine ? timestamp+(deleted?"":"  "+(read?"✓✓":"✓")) : timestamp,10,
                     read&&mine?BLUE:MUTED,false);
@@ -1249,7 +1264,7 @@ public final class NativeMessengerActivity extends Activity {
 
     private void openBot(JSONObject bot){
         String id=bot.optString("id");
-        showDetail(name(bot),false,"Автоматические ответы");
+        showDetail(name(bot),bot.optBoolean("verified",false),"Автоматические ответы");
         ScrollView scroll=new ScrollView(this);root.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));
         LinearLayout content=column();pad(content,19,17,19,15);scroll.addView(content);
         content.addView(text("Спросить бота",19,TEXT,true));space(content,13);
@@ -1302,15 +1317,118 @@ public final class NativeMessengerActivity extends Activity {
 
     private void loadSettings(int epoch){
         list.removeAllViews();pad(list,17,8,17,27);
+        // Prominent Telegram-style account card, with status resolved from the server.
+        LinearLayout accountHero=row();pad(accountHero,16,14,16,14);
+        accountHero.setBackground(shape(PANEL,24));
+        TextView accountAvatar=avatar(name(user),"direct");
+        accountHero.addView(accountAvatar,lp(58,58));
+        LinearLayout accountLabels=column();pad(accountLabels,14,1,0,0);
+        LinearLayout accountTitle=row();
+        accountTitle.addView(text(name(user),19,TEXT,true));
+        accountLabels.addView(accountTitle);
+        TextView accountSubtitle=text(user.optString("username","").isEmpty()
+                ?"Настроить профиль Vainah":"@"+user.optString("username"),13,MUTED,false);
+        accountLabels.addView(accountSubtitle);
+        accountHero.addView(accountLabels,new LinearLayout.LayoutParams(0,-2,1));
+        TextView accountArrow=text("›",30,MUTED,false);
+        accountHero.addView(accountArrow,lp(25,50));
+        accountHero.setClickable(true);
+        accountHero.setOnClickListener(v->showHome("profile"));
+        list.addView(accountHero,lp(-1,-2));space(list,15);
+        request("GET","/api/messenger/v2/verification/me",null,(badgeData,badgeError)->{
+            if(epoch!=generation || !tab.equals("settings"))return;
+            if(badgeError==null && badgeData.optBoolean("verified")){
+                accountTitle.addView(badge(),lp(21,21));
+                accountSubtitle.setText("✓ Проверено Vainah");
+            }
+        });
+        list.addView(text("СООБЩЕСТВА",11,MUTED,true));space(list,9);
         LinearLayout shortcuts=column();shortcuts.setBackground(shape(PANEL,24));
         list.addView(shortcuts,lp(-1,-2));
         sectionLink(shortcuts,"◉","Каналы","Мои каналы и подписки",()->showHome("channels"));
         sectionLink(shortcuts,"✦","Боты","Автоматические помощники",()->showHome("bots"));
         sectionLink(shortcuts,"◎","Контакты","Поиск людей по @username",()->showHome("contacts"));
         space(list,22);
+        list.addView(text("АККАУНТ И КОНФИДЕНЦИАЛЬНОСТЬ",11,MUTED,true));space(list,9);
         LinearLayout account=column();account.setBackground(shape(PANEL,24));
         list.addView(account,lp(-1,-2));
         sectionLink(account,"●","Аккаунт","Имя, @username и Vainah ID",()->showHome("profile"));
+        sectionLink(account,"◈","Оформление","Тема и анимации интерфейса",()->{
+            new AlertDialog.Builder(this).setTitle("Оформление Vainah")
+                .setMessage("Сейчас доступна тёмная тема Aurora. Светлая тема и дополнительные настройки оформления находятся в разработке. Системное отключение анимаций поддерживается.")
+                .setPositiveButton("Понятно",null).show();
+        });
+        sectionLink(account,"🔒","Конфиденциальность","Кто видит данные вашего профиля",()->{
+            new AlertDialog.Builder(this).setTitle("Конфиденциальность")
+                .setMessage("Настройки видимости профиля ещё не доступны. Пока не используйте приложение для информации, которую хотите скрыть от других участников.")
+                .setPositiveButton("Понятно",null).show();
+        });
+        sectionLink(account,"◎","Мои данные","Обновить профиль с сервера",()->{
+            request("GET","/api/auth/me",null,(data,error)->{
+                if(error!=null){notice(error);return;}
+                JSONObject fresh=data.optJSONObject("user");
+                if(fresh==null){notice("Данные аккаунта недоступны");return;}
+                user=fresh;
+                showHome("profile");
+            });
+        });
+        sectionLink(account,"▣","Устройства","Посмотреть активные сеансы",()->{
+            request("GET","/api/auth/sessions",null,(data,error)->{
+                if(error!=null){notice(error);return;}
+                JSONArray items=data.optJSONArray("items");
+                if(items==null){notice("Список сеансов недоступен");return;}
+                String[] labels=new String[items.length()];
+                for(int i=0;i<items.length();i++){
+                    JSONObject item=items.optJSONObject(i);
+                    boolean current=item!=null&&item.optBoolean("current");
+                    long created=item==null?0:item.optLong("created_at",0);
+                    long expires=item==null?0:item.optLong("expires_at",0);
+                    String title=current?"Текущий сеанс":"Другой сеанс "+(i+1);
+                    labels[i]=title+" · вход: "+new SimpleDateFormat("dd.MM.yyyy HH:mm",Locale.getDefault()).format(new Date(created*1000L))+" · до: "+new SimpleDateFormat("dd.MM.yyyy HH:mm",Locale.getDefault()).format(new Date(expires*1000L));
+                }
+                new AlertDialog.Builder(this).setTitle("Активные сеансы")
+                    .setItems(labels,(dialog,index)->{
+                        JSONObject selected=items.optJSONObject(index);
+                        if(selected==null)return;
+                        if(selected.optBoolean("current")){
+                            notice("Текущий сеанс можно завершить выходом из профиля");
+                            return;
+                        }
+                        String selectedId=selected.optString("id","");
+                        if(selectedId.isEmpty())return;
+                        new AlertDialog.Builder(this).setTitle("Завершить сеанс?")
+                            .setMessage("На этом устройстве потребуется снова войти в Vainah.")
+                            .setPositiveButton("Завершить",(confirm,which)->
+                                request("POST","/api/auth/sessions/"+selectedId+"/revoke",
+                                    new JSONObject(),(result,err)->{
+                                        if(err!=null)notice(err);
+                                        else notice("Сеанс завершён");
+                                    }))
+                            .setNegativeButton("Отмена",null).show();
+                    }).setNegativeButton("Закрыть",null).show();
+            });
+        });
+        sectionLink(account,"▣","Завершение других сеансов","Оставить только это устройство",()->{
+            new AlertDialog.Builder(this).setTitle("Безопасность устройств")
+                .setMessage("Завершить все остальные сеансы Vainah? На других устройствах потребуется снова войти. Текущий сеанс останется активным.")
+                .setPositiveButton("Завершить другие сеансы",(dialog,which)->
+                    request("POST","/api/auth/logout-others",new JSONObject(),(data,error)->{
+                        if(error!=null){notice(error);return;}
+                        notice("Другие сеансы завершены: "+data.optInt("revoked_sessions",0));
+                    }))
+                .setNegativeButton("Отмена",null).show();
+        });
+        sectionLink(account,"✓","Верификация Vainah","Статус подтверждения аккаунта",()->{
+            request("GET","/api/messenger/v2/verification/me",null,(data,error)->{
+                if(error!=null){notice(error);return;}
+                boolean approved=data.optBoolean("verified");
+                boolean owner=data.optBoolean("can_manage");
+                String status=approved?"Аккаунт подтверждён Vainah ✓":"Аккаунт пока не подтверждён";
+                if(owner)status+="\nВы можете выдавать и отзывать галочки другим пользователям.";
+                new AlertDialog.Builder(this).setTitle("Верификация Vainah")
+                    .setMessage(status).setPositiveButton("Понятно",null).show();
+            });
+        });
         sectionLink(account,"♧","Защита сообщений","Проверить состояние серверного шифрования",()->{
             request("GET","/api/messenger/v2/security-status",null,(data,error)->{
                 if(error!=null){notice("Не удалось проверить сервер: "+error);return;}
@@ -1398,10 +1516,13 @@ public final class NativeMessengerActivity extends Activity {
         LinearLayout profileHeading=row();profileHeading.setGravity(Gravity.CENTER);
         TextView display=text(name(user),28,TEXT,true);display.setGravity(Gravity.CENTER);
         profileHeading.addView(display);
+        profileHeading.setContentDescription("Профиль Vainah: "+name(user));
         hero.addView(profileHeading,lp(-1,43));space(hero,7);
         TextView emailLine=text(user.optString("email","Vainah ID"),14,MUTED,false);
         emailLine.setGravity(Gravity.CENTER);hero.addView(emailLine,lp(-1,27));space(hero,19);
         list.addView(hero,lp(-1,-2));
+        TextView profileHint=text("ПРОФИЛЬ · VAINAH MESSENGER",11,MUTED,true);
+        profileHint.setGravity(Gravity.CENTER);list.addView(profileHint,lp(-1,30));
         Button editName=button("✎  Изменить имя",false);
         list.addView(editName,lp(-1,51));space(list,20);
         editName.setOnClickListener(v->{
@@ -1472,6 +1593,7 @@ public final class NativeMessengerActivity extends Activity {
             canManage=error==null&&data.optBoolean("can_manage");
             if(verified){
                 profileHeading.addView(badge(),lp(22,22));
+                profileHeading.setContentDescription("Профиль Vainah: "+name(user)+", аккаунт подтверждён");
                 LinearLayout mark=row();mark.addView(text("Аккаунт подтверждён",15,TEXT,true));
                 mark.addView(badge(),lp(20,20));list.addView(mark);
             }

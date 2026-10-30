@@ -28,7 +28,15 @@ def test_admin_verified_status_visible_and_not_user_issued(tmp_path,monkeypatch)
     try:
         alice,aid,ha=new_user(app,"verify-a@example.net")
         bob,bid,hb=new_user(app,"verify-b@example.net")
-        monkeypatch.setenv("VAINAH_VERIFICATION_ADMIN_IDS",aid)
+        monkeypatch.setenv("VAINAH_VERIFICATION_ADMIN_IDS",bid)
+        monkeypatch.setenv("VAINAH_OWNER_USER_ID",aid)
+        owner_status=alice.get("/api/messenger/v2/verification/me").json()
+        assert owner_status=={"verified":True,"can_manage":True}
+        assert bob.get("/api/messenger/v2/verification/me").json()["can_manage"] is False
+        assert alice.get("/api/people/me").json()["verified"] is True
+        cannot_revoke_owner=alice.post("/api/messenger/v2/verification/manage",
+            headers=ha,json={"user_id":aid,"verified":False})
+        assert cannot_revoke_owner.status_code==409
         assert bob.put("/api/people/username",headers=hb,
                        json={"username":"verified_bob"}).status_code==200
         assert bob.get("/api/people/me").json()["verified"] is False
