@@ -397,7 +397,28 @@ public final class NativeMedia {
             if(player.isPlaying()){player.pause();play.setText("▶ Продолжить");}
             else {player.start();play.setText("⏸ Пауза");}
         });
-        player.setOnCompletionListener(mp->play.setText("▶ Повторить"));
+        // Telegram-style voice playback speeds, without transcoding the audio file.
+        if(android.os.Build.VERSION.SDK_INT>=23){
+            Button speed=new Button(activity);
+            speed.setText("1× Скорость");
+            panel.addView(speed);
+            final float[] rates={1.0f,1.5f,2.0f};
+            final int[] index={0};
+            speed.setOnClickListener(v->{
+                index[0]=(index[0]+1)%rates.length;
+                float rate=rates[index[0]];
+                try{
+                    player.setPlaybackParams(player.getPlaybackParams().setSpeed(rate));
+                    speed.setText((rate==1.0f?"1×":rate==1.5f?"1.5×":"2×")+" Скорость");
+                    if(!player.isPlaying()){player.pause();}
+                }catch(IllegalStateException | IllegalArgumentException ex){
+                    index[0]=0;
+                    speed.setText("1× Скорость");
+                    toast("Смена скорости не поддерживается на этом устройстве");
+                }
+            });
+        }
+        player.setOnCompletionListener(mp->{play.setText("▶ Повторить");});
         AlertDialog dialog=new AlertDialog.Builder(activity).setTitle("Vainah Audio")
                 .setView(panel).setNegativeButton("Закрыть",null).create();
         dialog.setOnDismissListener(d->{player.release();file.delete();});
