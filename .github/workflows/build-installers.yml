@@ -26,7 +26,7 @@ jobs:
       - name: Run server tests
         env:
           ENVIRONMENT: development
-        run: python -m pytest -q services/api/tests
+        run: python -m pytest -ra -vv services/api/tests
   windows-exe:
     name: Windows EXE (Ecosystem + Messenger)
     runs-on: windows-latest
