@@ -26,7 +26,6 @@ jobs:
       - name: Run server tests
         env:
           ENVIRONMENT: development
-          VAINAH_SIGNUP_MODE: open
         run: python -m pytest -q services/api/tests
   windows-exe:
     name: Windows EXE (Ecosystem + Messenger)
