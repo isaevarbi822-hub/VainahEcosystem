@@ -401,7 +401,7 @@ async function messenger(root) {
         }else if(action==='remove'){
           if(!confirm('Безвозвратно удалить группу и всю переписку для всех участников?'))return;
           await api(`/api/messenger/v2/groups/${chosen.id}`,{method:'DELETE'});
-          chosen=null;stage.classList.remove('thread-open');await loadChats();toast('Группа удалена');
+          chosen=null;stage.classList.remove('thread-open');document.getElementById('vm-workspace')?.classList.remove('vm-chat-open');await loadChats();toast('Группа удалена');
         }else if(action==='invite'){
           const email=prompt('Email пользователя Vainah ID:');if(!email)return;
           await api(`/api/messenger/v2/groups/${chosen.id}/invite`,{method:'POST',body:{email}});
@@ -409,7 +409,7 @@ async function messenger(root) {
         }else if(action==='leave'){
           if(!confirm('Выйти из группы? Администратор должен удалить свою группу.'))return;
           await api(`/api/messenger/v2/groups/${chosen.id}/leave`,{method:'DELETE'});
-          chosen=null;stage.classList.remove('thread-open');await loadChats();
+          chosen=null;stage.classList.remove('thread-open');document.getElementById('vm-workspace')?.classList.remove('vm-chat-open');await loadChats();
         }else toast('Для группы это действие пока недоступно');
       }else if(['pin','archive','mute'].includes(action)){
         const key={pin:'pinned',archive:'archived',mute:'muted'}[action];
