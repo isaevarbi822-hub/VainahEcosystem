@@ -591,6 +591,11 @@ public final class NativeMessengerActivity extends Activity {
         item.setBackground(ripple);
         item.setOnClickListener(v->{
             item.animate().cancel();
+            if(!android.animation.ValueAnimator.areAnimatorsEnabled()){
+                item.setScaleX(1f);item.setScaleY(1f);
+                click.run();
+                return;
+            }
             item.animate().scaleX(.985f).scaleY(.985f).setDuration(85)
                     .withEndAction(()->{
                         item.setScaleX(1f);item.setScaleY(1f);
