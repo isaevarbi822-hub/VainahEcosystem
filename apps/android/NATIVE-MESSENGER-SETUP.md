@@ -166,3 +166,9 @@ Grounded in Telegram's public feature documentation, but Vainah implements its o
 - The verified blue badge still comes from the server, and verified group senders are marked. Existing Google sign-in, @username, Vainah ID, live chat and optional AES-GCM encrypted **message body** storage are preserved.
 - **Limitations**: no full photo/video editing, auto-compression, photo albums, stories, calls or background push yet. Camera output on OEM devices needs manual testing. Attachments currently are NOT encrypted at rest by the text-only `VAINAH_MESSAGE_ENCRYPTION_KEY`; E2EE is NOT implemented. Never advertise them as fully private E2EE media.
 - Backend deployment on Render must use new server commit before the mobile client can send large video/files or group attachments. Reactivation of App Store/Apple Sign In also requires valid Apple Developer setup.
+
+### 0.10.1 native preview improvements
+- Recent photo/video messages now show small thumbnails directly in private and group chats. Video notes are visually clipped to circles, with a playback button.
+- The thumbnail worker downloads through the authenticated app session only, decodes downsampled images locally, and keeps a bounded 8 MB bitmap cache. Old media can still be tapped to open even when not thumbnailed.
+- Photo and video metadata are processed off the UI thread. A separate bounded media worker pool keeps normal REST calls responsive while uploading or fetching previews.
+- Real mobile playback and specific Samsung camera integration still require testing; the open-camera-app recording flow is less seamless than Telegram's integrated circular camera.
