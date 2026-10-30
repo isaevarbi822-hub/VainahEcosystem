@@ -1385,7 +1385,7 @@ public final class NativeMessengerActivity extends Activity {
                 new AlertDialog.Builder(this).setTitle("Активные сеансы")
                     .setMessage("Активных сеансов: "+total+". Других: "+others+
                         ". Названия устройств пока не сохраняются.")
-                    .setPositiveButton("Управление", (dialog,which)->showHome("settings"))
+                    .setPositiveButton("Понятно",null)
                     .setNegativeButton("Закрыть",null).show();
             });
         });
