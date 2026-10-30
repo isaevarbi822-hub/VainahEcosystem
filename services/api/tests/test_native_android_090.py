@@ -37,3 +37,16 @@ def test_real_chat_data_and_no_fake_conversations():
         assert route in native
     assert "Vainah пока не подключён" not in native
     assert "https://ваш-сервис.onrender.com" not in native
+
+def test_native_messenger_091_groups_and_safe_navigation():
+    native = (SOURCE / "NativeMessengerActivity.java").read_text(encoding="utf-8")
+    gradle = (ANDROID / "build.gradle").read_text(encoding="utf-8")
+    assert '"Создать группу"' in native
+    assert 'new JSONArray(unique)' in native
+    assert '"/api/messenger/v2/groups"' in native
+    assert 'formatTime(c.optLong("updated_at"))' in native
+    assert 'c.optInt("unread")' in native
+    assert 'if(threadEpoch!=generation)return;' in native
+    assert "stickToBottom" in native
+    assert 'inDetail' in native
+    assert "versionName '0.9.1'" in gradle

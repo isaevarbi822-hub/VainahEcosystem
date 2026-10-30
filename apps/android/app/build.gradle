@@ -16,8 +16,8 @@ android {
         applicationId messengerVariant ? 'no.vainah.messenger' : 'no.vainah.ecosystem'
         minSdk 26
         targetSdk 35
-        versionCode 10
-        versionName '0.9.0'
+        versionCode 11
+        versionName '0.9.1'
         def siteUrl = (project.findProperty('VAINAH_BASE_URL') ?: 'http://127.0.0.1:8000').toString()
         if (!(siteUrl.startsWith('https://') || siteUrl == 'http://127.0.0.1:8000')) {
             throw new GradleException('Use HTTPS for production or the USB localhost developer URL')

@@ -54,6 +54,7 @@ public final class NativeMessengerActivity extends Activity {
     private JSONObject user = new JSONObject();
     private boolean verified = false, canManage = false;
     private String tab = "chats", query = "";
+    private boolean inDetail = false;
     private int generation = 0;
     private final Handler handler = new Handler(Looper.getMainLooper());
 
@@ -135,6 +136,7 @@ public final class NativeMessengerActivity extends Activity {
     }
 
     private void showLogin(){
+        inDetail = false;
         generation++;reset();
         ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);root.addView(scroll,lp(-1,-1));
         LinearLayout body=column();pad(body,25,58,25,30);scroll.addView(body);
@@ -214,6 +216,7 @@ public final class NativeMessengerActivity extends Activity {
     }
 
     private void showHome(String target){
+        inDetail = false;
         tab=target;int epoch=++generation;reset();
         LinearLayout top=row();pad(top,20,15,13,8);root.addView(top,lp(-1,75));
         TextView heading=text(target.equals("chats")?"Vainah":target.equals("channels")?"Каналы":target.equals("bots")?"Боты":"Настройки",
@@ -223,7 +226,7 @@ public final class NativeMessengerActivity extends Activity {
             Button fresh=button("⌕",false);fresh.setTextSize(24);fresh.setBackground(shape(BG,12));
             top.addView(fresh,lp(45,46));fresh.setOnClickListener(v->{if(search!=null)search.requestFocus();});
             Button compose=button("✎",false);compose.setTextSize(22);compose.setBackground(shape(BG,12));
-            top.addView(compose,lp(45,46));compose.setOnClickListener(v->newChat());
+            top.addView(compose,lp(45,46));compose.setOnClickListener(v->newConversation());
         }else{
             Button reload=button("⟳",false);reload.setBackground(shape(BG,12));top.addView(reload,lp(47,46));
             reload.setOnClickListener(v->showHome(target));
@@ -249,7 +252,7 @@ public final class NativeMessengerActivity extends Activity {
             Button floating=button("✎",true);floating.setTextSize(26);
             FrameLayout.LayoutParams floatParams=new FrameLayout.LayoutParams(dp(58),dp(58),Gravity.RIGHT|Gravity.BOTTOM);
             floatParams.setMargins(0,0,dp(19),dp(22));
-            contentFrame.addView(floating,floatParams);floating.setOnClickListener(v->newChat());
+            contentFrame.addView(floating,floatParams);floating.setOnClickListener(v->newConversation());
             loadChats(epoch);
             handler.postDelayed(new Runnable(){
                 @Override public void run(){
@@ -299,17 +302,20 @@ public final class NativeMessengerActivity extends Activity {
     }
 
     private void loadError(String error) {
-        list.removeAllViews();
+        LinearLayout target = tab.equals("chats") ? list.findViewWithTag("chatResults") : list;
+        if (target == null) target = list;
+        target.removeAllViews();
         TextView text=text("Не удалось загрузить сообщения\n"+error,15,MUTED,false);
-        pad(text,22,38,22,18);list.addView(text);
+        pad(text,22,38,22,18);target.addView(text);
         Button retry=button("Повторить",true);LinearLayout.LayoutParams params=lp(-1,50);
-        params.setMargins(dp(20),0,dp(20),0);list.addView(retry,params);
+        params.setMargins(dp(20),0,dp(20),0);target.addView(retry,params);
         retry.setOnClickListener(v->showHome(tab));
     }
 
     private String formatTime(long timestamp){
         if(timestamp<=0)return "";
-        return new SimpleDateFormat("HH:mm",Locale.getDefault()).format(new Date(timestamp*1000));
+        long millis = timestamp > 100_000_000_000L ? timestamp : timestamp * 1000L;
+        return new SimpleDateFormat("HH:mm",Locale.getDefault()).format(new Date(millis));
     }
 
     private void renderChats() {
@@ -330,7 +336,8 @@ public final class NativeMessengerActivity extends Activity {
             JSONObject c=groups.optJSONObject(i);if(c==null)continue;
             if(!name(c).toLowerCase(Locale.ROOT).contains(match))continue;
             count++;final JSONObject chosen=c;
-            addConversation(results,name(c),c.optString("members","")+" участников",0,"",false,"group",
+            addConversation(results,name(c),c.optString("preview",c.optInt("members")+" участников"),
+                    c.optInt("unread"),formatTime(c.optLong("updated_at")),false,"group",
                     ()->openThread(chosen,true));
         }
         for(int i=0;i<channels.length();i++){
@@ -398,6 +405,51 @@ public final class NativeMessengerActivity extends Activity {
         item.setOnClickListener(v->click.run());
     }
 
+    private void newConversation() {
+        new AlertDialog.Builder(this).setTitle("Новая переписка")
+                .setItems(new String[]{"Личное сообщение", "Создать группу"}, (dialog, which) -> {
+                    if (which == 0) newChat();
+                    else newGroup();
+                }).setNegativeButton("Отмена", null).show();
+    }
+
+    private void newGroup() {
+        LinearLayout holder=column();pad(holder,20,12,20,6);
+        EditText title=field("Название группы",false);
+        EditText participants=field("Email участников через запятую",false);
+        participants.setInputType(InputType.TYPE_CLASS_TEXT|InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS|InputType.TYPE_TEXT_FLAG_MULTI_LINE);
+        participants.setSingleLine(false);participants.setMinLines(2);participants.setMaxLines(4);
+        holder.addView(title,lp(-1,52));space(holder,11);holder.addView(participants,lp(-1,-2));
+        new AlertDialog.Builder(this).setTitle("Создать группу").setView(holder)
+                .setPositiveButton("Создать",(dialog,which)->{
+                    String label=title.getText().toString().trim();
+                    if(label.length()<2||label.length()>80){notice("Название группы: от 2 до 80 символов.");return;}
+                    String raw=participants.getText().toString();
+                    java.util.LinkedHashSet<String> unique=new java.util.LinkedHashSet<>();
+                    for(String part:raw.split("[,;\\n]+")){
+                        String email=part.trim().toLowerCase(Locale.ROOT);
+                        if(email.isEmpty())continue;
+                        if(!android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()){
+                            notice("Неверный email участника: "+email);return;
+                        }
+                        unique.add(email);
+                    }
+                    if(unique.size()>24){notice("В группе может быть не более 25 участников.");return;}
+                    JSONObject payload=json("name",label);
+                    try{payload.put("emails",new JSONArray(unique));}catch(Exception ignored){}
+                    request("POST","/api/messenger/v2/groups",payload,(result,error)->{
+                        if(error!=null){notice(error);return;}
+                        JSONObject group=new JSONObject();
+                        try{
+                            group.put("id",result.optString("id"));
+                            group.put("name",result.optString("name",label));
+                        }catch(Exception ignored){}
+                        showHome("chats");
+                        openThread(group,true);
+                    });
+                }).setNegativeButton("Отмена",null).show();
+    }
+
     private void newChat(){
         EditText email=field("Email пользователя Vainah ID",false);
         email.setInputType(InputType.TYPE_CLASS_TEXT|InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS);
@@ -414,6 +466,7 @@ public final class NativeMessengerActivity extends Activity {
     }
 
     private void showDetail(String title,boolean verified,String subtitle) {
+        inDetail = true;
         generation++;reset();
         LinearLayout header=row();pad(header,10,9,15,9);root.addView(header,lp(-1,65));
         Button back=button("‹",false);back.setTextSize(30);back.setBackground(shape(BG,10));
@@ -439,18 +492,29 @@ public final class NativeMessengerActivity extends Activity {
         composer.addView(input,new LinearLayout.LayoutParams(0,dp(48),1));
         Button send=button("➤",true);send.setTextSize(22);LinearLayout.LayoutParams sp=lp(53,48);sp.leftMargin=dp(9);
         composer.addView(send,sp);
+        final int threadEpoch=generation;
         Runnable refresh=()->{
+            if(threadEpoch!=generation)return;
             String path=group?"/api/messenger/v2/groups/"+id+"/messages":"/api/messenger/v2/thread/"+id;
             request("GET",path,null,(data,error)->{
+                if(threadEpoch!=generation)return;
                 if(error!=null){notice(error);return;}
+                View child=scroll.getChildAt(0);
+                boolean stickToBottom=child==null || messages.getChildCount()==0 ||
+                        child.getHeight()-scroll.getScrollY()-scroll.getHeight()<dp(120);
                 messages.removeAllViews();
                 JSONArray items=data.optJSONArray("items");if(items==null)return;
                 for(int i=0;i<items.length();i++){
                     JSONObject message=items.optJSONObject(i);if(message==null)continue;
-                    addBubble(messages,message.optString("body",""),message.optBoolean("mine"),
+                    String content=message.optString("body","");
+                    if(group && !message.optBoolean("mine") && !message.optBoolean("deleted"))
+                        content=message.optString("sender","Участник")+":\n"+content;
+                    addBubble(messages,content,message.optBoolean("mine"),
                             formatTime(message.optLong("created_at")),message.optBoolean("deleted"));
                 }
-                scroll.post(()->scroll.fullScroll(View.FOCUS_DOWN));
+                if(stickToBottom)scroll.post(()->{
+                    if(threadEpoch==generation)scroll.fullScroll(View.FOCUS_DOWN);
+                });
                 if(!group)request("POST","/api/messenger/v2/thread/"+id+"/read",new JSONObject(),(ok,ignored)->{});
                 else if(items.length()>0)request("POST","/api/messenger/v2/groups/"+id+"/read",new JSONObject(),(ok,ignored)->{});
             });
@@ -462,13 +526,13 @@ public final class NativeMessengerActivity extends Activity {
             String path=group?"/api/messenger/v2/groups/"+id+"/send":"/api/messenger/v2/send";
             if(!group)try{data.put("contact_id",id);}catch(Exception ignored){}
             request("POST",path,data,(response,error)->{
+                if(threadEpoch!=generation)return;
                 send.setEnabled(true);
                 if(error!=null){notice(error);return;}
                 input.setText("");refresh.run();
             });
         });
         refresh.run();
-        final int threadEpoch=generation;
         handler.postDelayed(new Runnable(){
             @Override public void run(){
                 if(threadEpoch!=generation||isFinishing())return;
@@ -653,6 +717,9 @@ public final class NativeMessengerActivity extends Activity {
         JSONObject value=json("user_id",target);try{value.put("verified",approved);}catch(Exception ignored){}
         request("POST","/api/messenger/v2/verification/manage",value,(d,e)->notice(e!=null?e:"Статус обновлён"));
     }
-    @Override public void onBackPressed(){if(user.optString("id","").isEmpty()){super.onBackPressed();return;}showHome("chats");}
+    @Override public void onBackPressed(){
+        if(!user.optString("id","").isEmpty() && inDetail){showHome(tab);return;}
+        super.onBackPressed();
+    }
     @Override protected void onDestroy(){generation++;handler.removeCallbacksAndMessages(null);if(api!=null)api.close();super.onDestroy();}
 }
