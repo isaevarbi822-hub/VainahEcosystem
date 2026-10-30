@@ -70,6 +70,13 @@ public final class NativeMedia {
     private boolean voiceGroup=false;
     private long startedAt;
     private static final long MAX_FILE=20L * 1024 * 1024;
+    // Recordings are private app files, not Android's evictable cache.
+    private File pendingMediaDirectory(){
+        File directory=new File(activity.getFilesDir(),"pending-media");
+        if(!directory.exists() && !directory.mkdirs())
+            throw new IllegalStateException("Unable to create private media directory");
+        return directory;
+    }
     // Small local cache for previews: never persist private attachments to shared storage.
     private final LruCache<String,Bitmap> thumbnails = new LruCache<String,Bitmap>(8*1024*1024){
         @Override protected int sizeOf(String key,Bitmap image){return image.getByteCount();}
@@ -104,7 +111,7 @@ public final class NativeMedia {
     public void captureRoundVideo(){
         if(contactId.isEmpty()){toast("Откройте переписку");return;}
         try {
-            captureFile=File.createTempFile("video-note-"+UUID.randomUUID()+"-",".mp4",activity.getCacheDir());
+            captureFile=File.createTempFile("video-note-"+UUID.randomUUID()+"-",".mp4",pendingMediaDirectory());
             captureContact=contactId;
             captureGroup=groupChat;
             Uri output=FileProvider.getUriForFile(activity,
@@ -141,7 +148,7 @@ public final class NativeMedia {
         try {
             voiceContact=contactId;
             voiceGroup=groupChat;
-            voiceFile=File.createTempFile("voice-"+UUID.randomUUID()+"-",".m4a",activity.getCacheDir());
+            voiceFile=File.createTempFile("voice-"+UUID.randomUUID()+"-",".m4a",pendingMediaDirectory());
             recorder=new MediaRecorder();
             recorder.setAudioSource(MediaRecorder.AudioSource.MIC);
             recorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
@@ -224,11 +231,11 @@ public final class NativeMedia {
                 if(temp!=null && temp.exists()){
                     new AlertDialog.Builder(activity)
                             .setTitle("Не удалось отправить медиа")
-                            .setMessage("Запись сохранена временно. Повторить отправку?")
+                            .setMessage("Запись сохранена в приложении. Повторить отправку?")
                             .setPositiveButton("Повторить",(dialog,which)->
                                     sendUriWithId(target,group,uri,filename,mime,temp,uploadId))
                             .setNeutralButton("Закрыть",(dialog,which)->
-                                    toast("Запись может исчезнуть после закрытия приложения"))
+                                    toast("Запись осталась в приватном хранилище, но автоматическое восстановление ещё не реализовано"))
                             .setNegativeButton("Удалить",(dialog,which)->temp.delete())
                             .show();
                 }
