@@ -56,6 +56,7 @@ public final class NativeMessengerActivity extends Activity {
     private String tab = "chats", query = "";
     private boolean inDetail = false;
     private int generation = 0;
+    private Runnable pendingPeopleSearch;
     private final Handler handler = new Handler(Looper.getMainLooper());
 
     private int dp(float n) { return (int) (getResources().getDisplayMetrics().density * n + .5f); }
@@ -245,7 +246,9 @@ public final class NativeMessengerActivity extends Activity {
             search.setText(query);
             search.addTextChangedListener(new TextWatcher(){
                 public void beforeTextChanged(CharSequence s,int start,int count,int after){}
-                public void onTextChanged(CharSequence s,int start,int before,int count){query=s.toString();renderChats();}
+                public void onTextChanged(CharSequence s,int start,int before,int count){
+                    query=s.toString();renderChats();
+                }
                 public void afterTextChanged(Editable e){}
             });
             LinearLayout results=column();results.setTag("chatResults");container.addView(results,lp(-1,-2));
@@ -326,9 +329,12 @@ public final class NativeMessengerActivity extends Activity {
         for(int i=0;i<chats.length();i++){
             JSONObject c=chats.optJSONObject(i);if(c==null||c.optBoolean("archived"))continue;
             if(!name(c).toLowerCase(Locale.ROOT).contains(match) &&
+               !c.optString("username").toLowerCase(Locale.ROOT).contains(match) &&
                !c.optString("email").toLowerCase(Locale.ROOT).contains(match))continue;
             count++;final JSONObject chosen=c;
-            addConversation(results,name(c),c.optString("preview",c.optString("email")),
+            addConversation(results,name(c),c.optString("username").isEmpty() ?
+                    c.optString("preview",c.optString("email")) :
+                    "@"+c.optString("username")+" · "+c.optString("preview",""),
                     c.optInt("unread"),formatTime(c.optLong("updated_at")),c.optBoolean("verified"),"direct",
                     ()->openThread(chosen,false));
         }
@@ -354,9 +360,33 @@ public final class NativeMessengerActivity extends Activity {
             addConversation(results,name(c),c.optString("description","Бот Vainah"),0,"",false,"bot",
                     ()->openBot(chosen));
         }
-        if(count==0){
-            TextView empty=text(match.isEmpty()?"Пока нет переписок. Нажмите ✎, чтобы найти контакт.":"По вашему запросу ничего не найдено.",14,MUTED,false);
+        if(count==0 && match.isEmpty()){
+            TextView empty=text("Пока нет переписок. Нажмите ✎, чтобы найти пользователя по @username.",14,MUTED,false);
             empty.setGravity(Gravity.CENTER);pad(empty,25,76,25,25);results.addView(empty);
+        }
+        if(pendingPeopleSearch!=null)handler.removeCallbacks(pendingPeopleSearch);
+        String term=match.startsWith("@")?match.substring(1):match;
+        if(term.length()>=3 && term.length()<=32 && term.matches("[a-z0-9_]+")){
+            TextView label=text("ЛЮДИ ПО @USERNAME",12,MUTED,true);
+            pad(label,19,22,16,10);results.addView(label);
+            LinearLayout found=column();results.addView(found,lp(-1,-2));
+            int epoch=generation;
+            pendingPeopleSearch=()->request("GET","/api/people/search?q="+android.net.Uri.encode(term),null,(d,e)->{
+                if(epoch!=generation || !term.equals(query.trim().toLowerCase(Locale.ROOT).replaceFirst("^@","")))return;
+                found.removeAllViews();
+                if(e!=null){found.addView(text("Поиск недоступен: "+e,13,MUTED,false));return;}
+                JSONArray items=d.optJSONArray("items");
+                if(items==null||items.length()==0){
+                    TextView empty=text("Пользователи не найдены",13,MUTED,false);
+                    pad(empty,20,12,10,12);found.addView(empty);return;
+                }
+                for(int i=0;i<items.length();i++){
+                    JSONObject person=items.optJSONObject(i);if(person==null)continue;
+                    addConversation(found,name(person),"@"+person.optString("username"),0,"",false,"direct",
+                            ()->openThread(person,false));
+                }
+            });
+            handler.postDelayed(pendingPeopleSearch,350);
         }
     }
 
@@ -416,8 +446,8 @@ public final class NativeMessengerActivity extends Activity {
     private void newGroup() {
         LinearLayout holder=column();pad(holder,20,12,20,6);
         EditText title=field("Название группы",false);
-        EditText participants=field("Email участников через запятую",false);
-        participants.setInputType(InputType.TYPE_CLASS_TEXT|InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS|InputType.TYPE_TEXT_FLAG_MULTI_LINE);
+        EditText participants=field("@username участников через запятую",false);
+        participants.setInputType(InputType.TYPE_CLASS_TEXT|InputType.TYPE_TEXT_FLAG_MULTI_LINE);
         participants.setSingleLine(false);participants.setMinLines(2);participants.setMaxLines(4);
         holder.addView(title,lp(-1,52));space(holder,11);holder.addView(participants,lp(-1,-2));
         new AlertDialog.Builder(this).setTitle("Создать группу").setView(holder)
@@ -427,22 +457,23 @@ public final class NativeMessengerActivity extends Activity {
                     String raw=participants.getText().toString();
                     java.util.LinkedHashSet<String> unique=new java.util.LinkedHashSet<>();
                     for(String part:raw.split("[,;\\n]+")){
-                        String email=part.trim().toLowerCase(Locale.ROOT);
-                        if(email.isEmpty())continue;
-                        if(!android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()){
-                            notice("Неверный email участника: "+email);return;
+                        String handle=part.trim().replaceFirst("^@","").toLowerCase(Locale.ROOT);
+                        if(handle.isEmpty())continue;
+                        if(!handle.matches("[a-z][a-z0-9_]{4,31}")){
+                            notice("Неверный @username: "+handle);return;
                         }
-                        unique.add(email);
+                        unique.add(handle);
                     }
                     if(unique.size()>24){notice("В группе может быть не более 25 участников.");return;}
                     JSONObject payload=json("name",label);
-                    try{payload.put("emails",new JSONArray(unique));}catch(Exception ignored){}
+                    try{payload.put("usernames",new JSONArray(unique));}catch(Exception ignored){}
                     request("POST","/api/messenger/v2/groups",payload,(result,error)->{
                         if(error!=null){notice(error);return;}
                         JSONObject group=new JSONObject();
                         try{
                             group.put("id",result.optString("id"));
                             group.put("name",result.optString("name",label));
+                            group.put("owner_id",user.optString("id"));
                         }catch(Exception ignored){}
                         showHome("chats");
                         openThread(group,true);
@@ -451,16 +482,38 @@ public final class NativeMessengerActivity extends Activity {
     }
 
     private void newChat(){
-        EditText email=field("Email пользователя Vainah ID",false);
-        email.setInputType(InputType.TYPE_CLASS_TEXT|InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS);
-        LinearLayout holder=column();pad(holder,20,12,20,4);holder.addView(email,lp(-1,52));
-        new AlertDialog.Builder(this).setTitle("Новое сообщение").setView(holder)
-                .setNegativeButton("Отмена",null).setPositiveButton("Найти",(d,w)->{
-                    request("GET","/api/messenger/contact?email="+android.net.Uri.encode(
-                            email.getText().toString().trim()),null,(result,error)->{
+        EditText handle=field("@username или часть имени пользователя",false);
+        LinearLayout holder=column();pad(holder,20,12,20,4);holder.addView(handle,lp(-1,52));
+        new AlertDialog.Builder(this).setTitle("Найти человека по @username").setView(holder)
+                .setNegativeButton("Отмена",null).setPositiveButton("Искать",(d,w)->{
+                    String term=handle.getText().toString().trim().replaceFirst("^@","").toLowerCase(Locale.ROOT);
+                    if(term.length()<3 || !term.matches("[a-z0-9_]+")){notice("Введите минимум 3 символа @username");return;}
+                    request("GET","/api/people/search?q="+android.net.Uri.encode(term),null,(result,error)->{
                         if(error!=null){notice(error);return;}
-                        JSONObject contact=result.optJSONObject("contact");
-                        if(contact!=null)openThread(contact,false);
+                        JSONArray people=result.optJSONArray("items");
+                        if(people==null||people.length()==0){notice("Пользователи не найдены");return;}
+                        String[] labels=new String[people.length()];
+                        for(int i=0;i<people.length();i++){
+                            JSONObject p=people.optJSONObject(i);
+                            labels[i]=name(p)+"  @"+p.optString("username");
+                        }
+                        new AlertDialog.Builder(this).setTitle("Найденные люди")
+                                .setItems(labels,(dialog,which)->{
+                                    JSONObject person=people.optJSONObject(which);
+                                    if(person!=null)openThread(person,false);
+                                }).setNegativeButton("Закрыть",null).show();
+                    });
+                }).show();
+    }
+    private void promptUsernameInvite(String path,String title){
+        EditText field=field("@username",false);
+        LinearLayout holder=column();pad(holder,20,12,20,5);holder.addView(field,lp(-1,52));
+        new AlertDialog.Builder(this).setTitle(title).setView(holder)
+                .setNegativeButton("Отмена",null).setPositiveButton("Пригласить",(d,w)->{
+                    String handle=field.getText().toString().trim().replaceFirst("^@","").toLowerCase(Locale.ROOT);
+                    if(!handle.matches("[a-z][a-z0-9_]{4,31}")){notice("Проверьте @username");return;}
+                    request("POST",path,json("username",handle),(result,error)->{
+                        notice(error!=null?error:"Приглашение отправлено");
                     });
                 }).show();
     }
@@ -483,6 +536,12 @@ public final class NativeMessengerActivity extends Activity {
         String id=contact.optString("id");
         showDetail(name(contact),contact.optBoolean("verified"),
                 group?"Групповая переписка":"Личный чат · Vainah ID");
+        if(group && user.optString("id").equals(contact.optString("owner_id"))){
+            Button addMember=button("＋ Добавить по @username",false);
+            root.addView(addMember,lp(-1,49));
+            addMember.setOnClickListener(v->promptUsernameInvite(
+                    "/api/messenger/v2/groups/"+id+"/invite","Пригласить в группу"));
+        }
         FrameLayout messagesFrame=new FrameLayout(this);
         root.addView(messagesFrame,new LinearLayout.LayoutParams(-1,0,1));
         ScrollView scroll=new ScrollView(this);messagesFrame.addView(scroll,new FrameLayout.LayoutParams(-1,-1));
@@ -562,6 +621,31 @@ public final class NativeMessengerActivity extends Activity {
             Button create=button("＋ Создать канал",true);
             LinearLayout.LayoutParams cp=lp(-1,48);cp.setMargins(dp(17),dp(9),dp(17),dp(13));list.addView(create,cp);
             create.setOnClickListener(v->createCommunity(true));
+            request("GET","/api/community/channels/invitations",null,(invitationData,inviteError)->{
+                if(epoch!=generation || inviteError!=null)return;
+                JSONArray invites=invitationData.optJSONArray("items");
+                if(invites==null||invites.length()==0)return;
+                TextView head=text("ПРИГЛАШЕНИЯ В КАНАЛЫ",12,MUTED,true);
+                pad(head,20,12,12,11);list.addView(head);
+                for(int i=0;i<invites.length();i++){
+                    JSONObject invite=invites.optJSONObject(i);if(invite==null)continue;
+                    LinearLayout entry=column();pad(entry,18,10,18,12);
+                    entry.addView(text(invite.optString("channel_name")+" · от @"+invite.optString("invited_by"),14,TEXT,true));
+                    space(entry,8);
+                    LinearLayout actions=row();
+                    Button accept=button("Принять",true),decline=button("Отклонить",false);
+                    actions.addView(accept,new LinearLayout.LayoutParams(0,dp(43),1));
+                    actions.addView(decline,new LinearLayout.LayoutParams(0,dp(43),1));
+                    entry.addView(actions);list.addView(entry);
+                    String inviteId=invite.optString("id");
+                    accept.setOnClickListener(v->request("POST",
+                            "/api/community/channels/invitations/"+inviteId+"/accept",new JSONObject(),
+                            (res,err)->{if(err!=null)notice(err);else showHome("channels");}));
+                    decline.setOnClickListener(v->request("DELETE",
+                            "/api/community/channels/invitations/"+inviteId,null,
+                            (res,err)->{if(err!=null)notice(err);else showHome("channels");}));
+                }
+            });
             for(int i=0;i<channels.length();i++){
                 JSONObject channel=channels.optJSONObject(i);if(channel==null)continue;
                 addConversation(list,name(channel),channel.optString("description","Канал"),
@@ -576,6 +660,12 @@ public final class NativeMessengerActivity extends Activity {
         LinearLayout frame=column();root.addView(frame,new LinearLayout.LayoutParams(-1,0,1));
         ScrollView scroll=new ScrollView(this);frame.addView(scroll,lp(-1,-1));
         LinearLayout posts=column();pad(posts,17,16,17,25);scroll.addView(posts);
+        if(channel.optBoolean("owner")){
+            Button addPerson=button("＋ Пригласить по @username",false);
+            root.addView(addPerson,lp(-1,48));
+            addPerson.setOnClickListener(v->promptUsernameInvite(
+                    "/api/community/channels/"+id+"/invite","Приглашение в канал"));
+        }
         if(!channel.optBoolean("owner")){
             Button join=button(channel.optBoolean("subscribed")?"Отписаться":"Подписаться",true);
             LinearLayout.LayoutParams jp=lp(-1,50);jp.setMargins(dp(17),dp(8),dp(17),dp(12));
@@ -672,7 +762,31 @@ public final class NativeMessengerActivity extends Activity {
     private void loadProfile(int epoch){
         list.removeAllViews();pad(list,20,18,20,20);
         list.addView(text(name(user),25,TEXT,true));space(list,7);
-        list.addView(text(user.optString("email","Vainah ID"),14,MUTED,false));space(list,18);
+        list.addView(text(user.optString("email","Vainah ID"),14,MUTED,false));space(list,15);
+        TextView handleText=text("Публичный @username: не задан",16,BLUE,true);
+        list.addView(handleText);space(list,7);
+        request("GET","/api/people/me",null,(data,error)->{
+            if(epoch!=generation)return;
+            if(error==null){
+                String value=data.optString("username","");
+                if(!value.isEmpty()&&!value.equals("null"))handleText.setText("@"+value);
+            }
+        });
+        Button updateHandle=button("Установить или изменить @username",false);
+        list.addView(updateHandle,lp(-1,50));space(list,18);
+        updateHandle.setOnClickListener(v->{
+            EditText field=field("Имя латиницей, от 5 до 32 символов",false);
+            LinearLayout holder=column();pad(holder,20,10,20,8);holder.addView(field,lp(-1,52));
+            new AlertDialog.Builder(this).setTitle("Публичное имя пользователя").setView(holder)
+                .setNegativeButton("Отмена",null).setPositiveButton("Сохранить",(d,w)->{
+                    String handle=field.getText().toString().trim().replaceFirst("^@","").toLowerCase(Locale.ROOT);
+                    if(!handle.matches("[a-z][a-z0-9_]{4,31}")){notice("Имя: 5–32 символа, первая буква латинская");return;}
+                    request("PUT","/api/people/username",json("username",handle),(response,error)->{
+                        if(error!=null)notice(error);
+                        else handleText.setText("@"+response.optString("username"));
+                    });
+                }).show();
+        });
         list.addView(text("Ваш Vainah ID",13,MUTED,false));space(list,7);
         TextView id=text(user.optString("id",""),12,TEXT,false);id.setTextIsSelectable(true);
         list.addView(id);space(list,22);
