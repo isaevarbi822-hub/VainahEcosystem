@@ -55,6 +55,11 @@ public final class NativeMessengerActivity extends Activity {
     private static final int BLUE = Color.rgb(34, 160, 246);
     private static final int LINE = Color.rgb(48, 49, 55);
     private NativeApi api;
+    private NativeRealtime live;
+    private Runnable liveThreadRefresh;
+    private String currentThreadId = "";
+    private boolean currentThreadIsGroup = false;
+    private boolean isForeground = false;
     private LinearLayout root;
     private LinearLayout list;
     private FrameLayout contentFrame;
@@ -151,6 +156,7 @@ public final class NativeMessengerActivity extends Activity {
         String endpoint=BuildConfig.VAINAH_BASE_URL;
         if(endpoint.startsWith("https://") && !endpoint.contains("127.0.0.1") && !endpoint.contains("localhost"))
             api=new NativeApi(this,endpoint);
+        if(api!=null)live=new NativeRealtime(endpoint,this::onLiveEvent);
         showLogin();
         if(getIntent()!=null && getIntent().getData()!=null)handleAppleReturn(getIntent());
         if(api!=null && api.hasSession()){
@@ -162,6 +168,8 @@ public final class NativeMessengerActivity extends Activity {
     }
 
     private void showLogin(){
+        if(live!=null)live.stop();
+        liveThreadRefresh=null;currentThreadId="";
         inDetail = false;
         generation++;reset();
         ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);root.addView(scroll,lp(-1,-1));
@@ -297,6 +305,8 @@ public final class NativeMessengerActivity extends Activity {
     }
 
     private void showHome(String target){
+        liveThreadRefresh=null;currentThreadId="";
+        startLive();
         inDetail = false;
         tab=target;int epoch=++generation;chatRefreshInProgress=false;reset();
         LinearLayout top=row();pad(top,20,15,13,8);root.addView(top,lp(-1,75));
@@ -629,6 +639,7 @@ public final class NativeMessengerActivity extends Activity {
     }
 
     private void showDetail(String title,boolean verified,String subtitle) {
+        liveThreadRefresh=null;currentThreadId="";
         inDetail = true;
         generation++;reset();
         LinearLayout header=row();pad(header,10,9,15,9);root.addView(header,lp(-1,65));
@@ -669,6 +680,8 @@ public final class NativeMessengerActivity extends Activity {
         Button send=button("➤",true);send.setTextSize(22);LinearLayout.LayoutParams sp=lp(53,48);sp.leftMargin=dp(9);
         composer.addView(send,sp);
         final int threadEpoch=generation;
+        currentThreadId=id;
+        currentThreadIsGroup=group;
         final String[] lastRendered={"", ""};
         final boolean[] refreshRunning={false};
         Runnable refresh=()->{
@@ -735,6 +748,7 @@ public final class NativeMessengerActivity extends Activity {
                 refresh.run();
             });
         });
+        liveThreadRefresh=refresh;
         refresh.run();
         handler.postDelayed(new Runnable(){
             @Override public void run(){
@@ -1204,5 +1218,45 @@ public final class NativeMessengerActivity extends Activity {
         if(!user.optString("id","").isEmpty() && inDetail){showHome(tab);return;}
         super.onBackPressed();
     }
-    @Override protected void onDestroy(){generation++;handler.removeCallbacksAndMessages(null);if(api!=null)api.close();super.onDestroy();}
+    private void startLive(){
+        if(!isForeground || live==null || api==null || !api.hasSession())return;
+        live.start(api.liveCookie());
+    }
+
+    private void onLiveEvent(JSONObject event){
+        if(!isForeground || !api.hasSession() || user.optString("id","").isEmpty())return;
+        String type=event.optString("type","");
+        if(type.equals("message.changed") || type.equals("message.read") ||
+                type.equals("group.changed")){
+            if(inDetail && liveThreadRefresh!=null){
+                boolean matching=type.equals("group.changed")?
+                        currentThreadIsGroup && currentThreadId.equals(event.optString("group_id")):
+                        !currentThreadIsGroup &&
+                        (currentThreadId.equals(event.optString("contact_id")) ||
+                         currentThreadId.equals(event.optString("sender_id")));
+                if(matching){liveThreadRefresh.run();return;}
+            }
+            if(!inDetail && tab.equals("chats"))loadChats(generation);
+        }
+    }
+
+    @Override protected void onStart(){
+        super.onStart();
+        isForeground=true;
+        startLive();
+    }
+
+    @Override protected void onStop(){
+        isForeground=false;
+        if(live!=null)live.stop();
+        super.onStop();
+    }
+
+    @Override protected void onDestroy(){
+        generation++;
+        handler.removeCallbacksAndMessages(null);
+        if(live!=null)live.close();
+        if(api!=null)api.close();
+        super.onDestroy();
+    }
 }
