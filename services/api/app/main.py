@@ -21,6 +21,7 @@ from .realtime import router as realtime_router, LiveHub
 from .verification import router as verification_router
 from .community import router as community_router
 from .handles import router as people_router
+from .apple_login import router as apple_router
 
 APP_NAMES = {"ai":"AI", "messenger":"Messenger", "browser":"Browser", "music":"Music",
              "weather":"Weather", "maps":"Maps", "notes":"Notes", "translate":"Translate",
@@ -67,6 +68,7 @@ def create_app(database_url: str | None = None) -> FastAPI:
     app.include_router(verification_router)
     app.include_router(community_router)
     app.include_router(people_router)
+    app.include_router(apple_router)
     app.include_router(integrations_router)
 
     @app.get("/api/health")
