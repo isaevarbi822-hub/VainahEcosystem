@@ -679,7 +679,7 @@ public final class NativeMessengerActivity extends Activity {
         String id=contact.optString("id");
         if(media!=null){
             media.cancelRecording();
-            if(group)media.clearContact();else media.setContact(id);
+            media.setContact(id,group);
         }
         String normalSubtitle=group?"Групповая переписка":
                 (contact.optString("username","").isEmpty()?"Личный чат":
@@ -719,7 +719,7 @@ public final class NativeMessengerActivity extends Activity {
             replyingTo[0]="";replyingBanner.setVisibility(View.GONE);
         });
         LinearLayout composer=row();pad(composer,7,8,7,12);composer.setBackgroundColor(PANEL);root.addView(composer,lp(-1,76));
-        if(!group){
+        {
             Button attach=button("＋",false);
             attach.setTextSize(24);
             composer.addView(attach,lp(41,46));
@@ -746,7 +746,7 @@ public final class NativeMessengerActivity extends Activity {
             public void afterTextChanged(Editable text){}
         });
         composer.addView(input,new LinearLayout.LayoutParams(0,dp(48),1));
-        if(!group){
+        {
             voiceButton=button("🎤",false);
             voiceButton.setTextSize(18);
             composer.addView(voiceButton,lp(42,48));
@@ -763,7 +763,7 @@ public final class NativeMessengerActivity extends Activity {
             roundVideo.setOnClickListener(v->{
                 if(media!=null)media.captureRoundVideo();
             });
-        }else voiceButton=null;
+        }
         Button send=button("➤",true);send.setTextSize(22);LinearLayout.LayoutParams sp=lp(43,48);sp.leftMargin=dp(4);
         composer.addView(send,sp);
         final int threadEpoch=generation;
