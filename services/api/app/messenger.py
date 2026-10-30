@@ -66,7 +66,7 @@ def verified_upload_type(content: bytes, claimed: str) -> str | None:
     claimed = (claimed or "").split(";", 1)[0].strip().lower()
     if content.startswith(b"%PDF-"):
         return "application/pdf"
-    if content.startswith(b"PK\\x03\\x04"):
+    if content.startswith(b"PK\x03\x04"):
         return "application/zip"
     if base == "audio/mp4":
         return "video/mp4" if claimed == "video/mp4" else "audio/mp4"
