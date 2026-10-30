@@ -2,6 +2,9 @@ package no.vainah.ecosystem;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.content.ClipData;
+import android.content.ClipboardManager;
+import android.content.Context;
 import android.content.Intent;
 import android.content.ActivityNotFoundException;
 import android.net.Uri;
@@ -565,12 +568,20 @@ public final class NativeMessengerActivity extends Activity {
     }
 
     private void newChat(){
-        EditText handle=field("@username или часть имени пользователя",false);
+        EditText handle=field("@username или 10-значный Vainah ID",false);
         LinearLayout holder=column();pad(holder,20,12,20,4);holder.addView(handle,lp(-1,52));
         new AlertDialog.Builder(this).setTitle("Найти человека по @username").setView(holder)
                 .setNegativeButton("Отмена",null).setPositiveButton("Искать",(d,w)->{
                     String term=handle.getText().toString().trim().replaceFirst("^@","").toLowerCase(Locale.ROOT);
-                    if(term.length()<3 || !term.matches("[a-z0-9_]+")){notice("Введите минимум 3 символа @username");return;}
+                    if(term.matches("[0-9]{10}")){
+                        request("GET","/api/people/id/"+term,null,(result,error)->{
+                            if(error!=null){notice(error);return;}
+                            JSONObject person=result.optJSONObject("person");
+                            if(person!=null)openThread(person,false);
+                        });
+                        return;
+                    }
+                    if(term.length()<3 || !term.matches("[a-z0-9_]+")){notice("Введите @username или 10-значный ID");return;}
                     request("GET","/api/people/search?q="+android.net.Uri.encode(term),null,(result,error)->{
                         if(error!=null){notice(error);return;}
                         JSONArray people=result.optJSONArray("items");
@@ -876,16 +887,16 @@ public final class NativeMessengerActivity extends Activity {
                 .setPositiveButton("Понятно",null).show();
         });
         space(list,18);
-        list.addView(text("VAINAH MESSENGER  ·  0.9.3",12,MUTED,false));
+        list.addView(text("VAINAH MESSENGER  ·  0.9.4",12,MUTED,false));
     }
 
     private void loadContacts(int epoch){
         list.removeAllViews();pad(list,15,7,15,22);
-        EditText input=field("⌕  Найти по @username",false);
+        EditText input=field("⌕  Поиск по @username или Vainah ID",false);
         list.addView(input,lp(-1,52));space(list,13);
         LinearLayout results=column();results.setBackground(shape(PANEL,24));
         list.addView(results,lp(-1,-2));
-        TextView hint=text("Введите минимум 3 символа ника, чтобы найти пользователя.",14,MUTED,false);
+        TextView hint=text("Найди человека по @username или точному 10-значному Vainah ID.",14,MUTED,false);
         pad(hint,17,28,17,29);results.addView(hint);
         input.addTextChangedListener(new TextWatcher(){
             public void beforeTextChanged(CharSequence value,int start,int count,int after){}
@@ -893,21 +904,33 @@ public final class NativeMessengerActivity extends Activity {
                 String term=value.toString().trim().toLowerCase(Locale.ROOT).replaceFirst("^@","");
                 results.removeAllViews();
                 if(pendingPeopleSearch!=null)handler.removeCallbacks(pendingPeopleSearch);
-                if(term.length()<3){TextView empty=text("Начните вводить @username",14,MUTED,false);
+                boolean byId=term.matches("[0-9]{10}");
+                if(!byId && term.length()<3){TextView empty=text("Введите @username или 10-значный ID",14,MUTED,false);
                     pad(empty,17,25,17,25);results.addView(empty);return;}
-                if(!term.matches("[a-z0-9_]{3,32}"))return;
-                pendingPeopleSearch=()->request("GET","/api/people/search?q="+android.net.Uri.encode(term),null,(data,error)->{
+                if(!byId && !term.matches("[a-z0-9_]{3,32}"))return;
+                String endpoint=byId?"/api/people/id/"+term:
+                        "/api/people/search?q="+android.net.Uri.encode(term);
+                pendingPeopleSearch=()->request("GET",endpoint,null,(data,error)->{
                     if(epoch!=generation||!input.getText().toString().trim().replaceFirst("^@","").equalsIgnoreCase(term))return;
                     results.removeAllViews();
                     if(error!=null){loadContactsError(results,error);return;}
-                    JSONArray matches=data.optJSONArray("items");
-                    if(matches==null||matches.length()==0){
-                        loadContactsError(results,"Никто не найден. Проверьте написание ника.");return;
-                    }
-                    for(int i=0;i<matches.length();i++){
-                        JSONObject person=matches.optJSONObject(i);if(person==null)continue;
-                        addConversation(results,name(person),"@"+person.optString("username"),0,"",false,"direct",
-                            ()->openThread(person,false));
+                    if(byId){
+                        JSONObject person=data.optJSONObject("person");
+                        if(person==null){loadContactsError(results,"Пользователь не найден");return;}
+                        String username=person.optString("username","");
+                        addConversation(results,name(person),username.isEmpty()?
+                                "Vainah ID: "+term:"@"+username+" · ID "+term,
+                                0,"",false,"direct",()->openThread(person,false));
+                    }else{
+                        JSONArray matches=data.optJSONArray("items");
+                        if(matches==null||matches.length()==0){
+                            loadContactsError(results,"Никто не найден. Проверьте написание ника.");return;
+                        }
+                        for(int i=0;i<matches.length();i++){
+                            JSONObject person=matches.optJSONObject(i);if(person==null)continue;
+                            addConversation(results,name(person),"@"+person.optString("username"),0,"",false,"direct",
+                                ()->openThread(person,false));
+                        }
                     }
                 });
                 handler.postDelayed(pendingPeopleSearch,350);
@@ -956,12 +979,30 @@ public final class NativeMessengerActivity extends Activity {
         list.addView(identity,lp(-1,-2));
         identity.addView(text("ЛИЧНАЯ ИНФОРМАЦИЯ",12,BLUE,true));space(identity,12);
         TextView handleText=text("Публичный @username: не задан",16,BLUE,true);
-        identity.addView(handleText);space(identity,9);
+        identity.addView(handleText);space(identity,12);
+        identity.addView(text("VAINAH ID · ПОСТОЯННЫЙ",12,MUTED,true));space(identity,7);
+        LinearLayout idRow=row();
+        TextView numericId=text(user.optString("vainah_id","Загружается..."),23,TEXT,true);
+        numericId.setTextIsSelectable(true);
+        idRow.addView(numericId,new LinearLayout.LayoutParams(0,dp(48),1));
+        Button copyId=button("Копировать",false);
+        idRow.addView(copyId,lp(123,44));
+        copyId.setOnClickListener(v->{
+            String number=numericId.getText().toString();
+            if(!number.matches("[0-9]{10}")){notice("Vainah ID ещё загружается");return;}
+            ClipboardManager clipboard=(ClipboardManager)getSystemService(Context.CLIPBOARD_SERVICE);
+            if(clipboard==null)return;
+            clipboard.setPrimaryClip(ClipData.newPlainText("Vainah ID",number));
+            notice("Vainah ID скопирован");
+        });
+        identity.addView(idRow);space(identity,15);
         request("GET","/api/people/me",null,(data,error)->{
             if(epoch!=generation)return;
             if(error==null){
                 String value=data.optString("username","");
                 if(!value.isEmpty()&&!value.equals("null"))handleText.setText("@"+value);
+                String numeric=data.optString("vainah_id","");
+                if(numeric.matches("[0-9]{10}"))numericId.setText(numeric);
             }
         });
         Button updateHandle=button("Установить или изменить @username",false);
@@ -979,9 +1020,8 @@ public final class NativeMessengerActivity extends Activity {
                     });
                 }).show();
         });
-        identity.addView(text("Ваш Vainah ID",13,MUTED,false));space(identity,7);
-        TextView id=text(user.optString("id",""),12,TEXT,false);id.setTextIsSelectable(true);
-        identity.addView(id);space(list,22);
+        identity.addView(text("ID не меняется при смене ника или входе с другого устройства.",12,MUTED,false));
+        space(list,22);
         request("GET","/api/messenger/v2/verification/me",null,(data,error)->{
             if(epoch!=generation)return;
             verified=error==null&&data.optBoolean("verified");
