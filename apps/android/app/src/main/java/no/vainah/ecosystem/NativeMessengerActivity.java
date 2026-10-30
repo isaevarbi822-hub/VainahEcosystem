@@ -48,13 +48,13 @@ import java.nio.charset.StandardCharsets;
  */
 public final class NativeMessengerActivity extends Activity {
     // Vainah Aurora: Telegram-like clarity with Vainah's own midnight-blue palette.
-    private static final int BG = Color.rgb(12, 17, 29);
-    private static final int PANEL = Color.rgb(20, 28, 43);
-    private static final int PANEL2 = Color.rgb(34, 46, 65);
+    private static final int BG = Color.rgb(12, 13, 16);
+    private static final int PANEL = Color.rgb(27, 28, 31);
+    private static final int PANEL2 = Color.rgb(43, 46, 51);
     private static final int TEXT = Color.rgb(243, 248, 255);
-    private static final int MUTED = Color.rgb(150, 169, 193);
+    private static final int MUTED = Color.rgb(141, 145, 153);
     private static final int BLUE = Color.rgb(55, 161, 252);
-    private static final int LINE = Color.rgb(39, 54, 76);
+    private static final int LINE = Color.rgb(43, 45, 49);
     private NativeApi api;
     private NativeMedia media;
     private NativeRealtime live;
@@ -112,7 +112,7 @@ public final class NativeMessengerActivity extends Activity {
         Button b = new Button(this);
         b.setAllCaps(false); b.setText(label); b.setTextSize(14);
         b.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
-        b.setTextColor(TEXT);b.setBackground(shape(primary?BLUE:PANEL2,19));
+        b.setTextColor(primary?Color.WHITE:TEXT);b.setBackground(shape(primary?BLUE:PANEL2,14));
         b.setMinHeight(dp(48));b.setElevation(0);return b;
     }
     private EditText field(String hint, boolean password) {
@@ -348,10 +348,10 @@ public final class NativeMessengerActivity extends Activity {
         inDetail = false;
         tab=target;int epoch=++generation;chatRefreshInProgress=false;reset();
         root.post(()->reveal(root,false));
-        LinearLayout top=row();pad(top,20,15,13,8);root.addView(top,lp(-1,75));
+        LinearLayout top=row();pad(top,18,6,12,3);root.addView(top,lp(-1,60));
         TextView heading=text(target.equals("chats")?"Vainah":target.equals("contacts")?"Контакты":
                 target.equals("profile")?"Профиль":target.equals("channels")?"Каналы":
-                target.equals("bots")?"Боты":"Настройки",28,TEXT,true);
+                target.equals("bots")?"Боты":"Настройки",25,TEXT,true);
         top.addView(heading,new LinearLayout.LayoutParams(0,-1,1));
         if(target.equals("chats")){
             Button fresh=button("⌕",false);fresh.setTextSize(24);fresh.setBackground(shape(BG,12));
@@ -369,9 +369,9 @@ public final class NativeMessengerActivity extends Activity {
         LinearLayout container=column();scroll.addView(container);
         list=container;
         if(target.equals("chats")){
-            search=field("⌕  Поиск чатов и @username",false);
-            search.setSingleLine(true);pad(search,18,7,18,7);
-            LinearLayout.LayoutParams input=lp(-1,49);input.setMargins(dp(16),dp(4),dp(16),dp(8));
+            search=field("⌕  Поиск чатов",false);
+            search.setSingleLine(true);pad(search,15,5,15,5);search.setBackground(shape(PANEL,22));
+            LinearLayout.LayoutParams input=lp(-1,46);input.setMargins(dp(12),dp(1),dp(12),dp(9));
             container.addView(search,input);
             search.setText(query);
             search.addTextChangedListener(new TextWatcher(){
@@ -382,21 +382,21 @@ public final class NativeMessengerActivity extends Activity {
                 public void afterTextChanged(Editable e){}
             });
             LinearLayout categories=row();pad(categories,5,4,5,4);
-            categories.setBackground(shape(PANEL,23));
-            LinearLayout.LayoutParams tabsParams=lp(-1,49);
-            tabsParams.setMargins(dp(15),0,dp(15),dp(12));
+            categories.setBackground(shape(PANEL,18));
+            LinearLayout.LayoutParams tabsParams=lp(-1,42);
+            tabsParams.setMargins(dp(12),0,dp(12),dp(7));
             container.addView(categories,tabsParams);
             for(String[] option:new String[][]{{"Все","all"},{"Личные","direct"},{"Группы","group"},{"Каналы","channel"},{"Боты","bot"}}){
                 String label=option[0],value=option[1];
-                TextView chip=text(label,12,chatFilter.equals(value)?TEXT:MUTED,chatFilter.equals(value));
+                TextView chip=text(label,11,chatFilter.equals(value)?BLUE:MUTED,chatFilter.equals(value));
                 chip.setGravity(Gravity.CENTER);
-                if(chatFilter.equals(value))chip.setBackground(shape(0xff293d4b,18));
+                if(chatFilter.equals(value))chip.setBackground(shape(0xff26323a,16));
                 categories.addView(chip,new LinearLayout.LayoutParams(0,-1,1));
                 chip.setOnClickListener(v->{chatFilter=value;showHome("chats");});
             }
             LinearLayout results=column();results.setTag("chatResults");container.addView(results,lp(-1,-2));
             Button floating=button("✎",true);floating.setTextSize(26);
-            FrameLayout.LayoutParams floatParams=new FrameLayout.LayoutParams(dp(58),dp(58),Gravity.RIGHT|Gravity.BOTTOM);
+            FrameLayout.LayoutParams floatParams=new FrameLayout.LayoutParams(dp(54),dp(54),Gravity.RIGHT|Gravity.BOTTOM);
             floatParams.setMargins(0,0,dp(19),dp(22));
             contentFrame.addView(floating,floatParams);floating.setOnClickListener(v->newConversation());
             loadChats(epoch);
@@ -412,9 +412,9 @@ public final class NativeMessengerActivity extends Activity {
         else if(target.equals("bots"))loadBots(epoch);
         else if(target.equals("profile"))loadProfile(epoch);
         else loadSettings(epoch);
-        LinearLayout nav=row();pad(nav,7,3,7,5);nav.setBackground(border(PANEL,25));
-        LinearLayout.LayoutParams navSpace=lp(-1,68);
-        navSpace.setMargins(dp(10),dp(4),dp(10),dp(9));
+        LinearLayout nav=row();pad(nav,5,3,5,3);nav.setBackground(shape(PANEL,25));
+        LinearLayout.LayoutParams navSpace=lp(-1,62);
+        navSpace.setMargins(dp(8),dp(3),dp(8),dp(6));
         root.addView(nav,navSpace);
         bottom(nav,"☏","Чаты","chats");
         bottom(nav,"◎","Контакты","contacts");
@@ -424,9 +424,9 @@ public final class NativeMessengerActivity extends Activity {
 
     private void bottom(LinearLayout bar,String glyph,String label,String destination) {
         LinearLayout cell=column();cell.setGravity(Gravity.CENTER);
-        if(tab.equals(destination))cell.setBackground(shape(0xff263846,23));
-        TextView icon=text(glyph,23,tab.equals(destination)?BLUE:MUTED,true);icon.setGravity(Gravity.CENTER);
-        TextView title=text(label,11,tab.equals(destination)?BLUE:MUTED,tab.equals(destination));
+        if(tab.equals(destination))cell.setBackground(shape(0xff26323a,22));
+        TextView icon=text(glyph,22,tab.equals(destination)?BLUE:MUTED,true);icon.setGravity(Gravity.CENTER);
+        TextView title=text(label,11,tab.equals(destination)?BLUE:TEXT,tab.equals(destination));
         title.setGravity(Gravity.CENTER);cell.addView(icon,lp(-1,28));cell.addView(title,lp(-1,21));
         bar.addView(cell,new LinearLayout.LayoutParams(0,-1,1));
         cell.setOnClickListener(v->{if(!tab.equals(destination)){query="";showHome(destination);}});
@@ -565,15 +565,15 @@ public final class NativeMessengerActivity extends Activity {
 
     private void addConversation(LinearLayout container,String title,String preview,int unread,String when,
                                  boolean approved,String type,Runnable click){
-        LinearLayout item=row();pad(item,17,14,16,14);
-        TextView face=avatar(title,type);item.addView(face,lp(54,54));
-        LinearLayout middle=column();pad(middle,12,0,5,0);
+        LinearLayout item=row();pad(item,13,10,12,10);
+        TextView face=avatar(title,type);item.addView(face,lp(52,52));
+        LinearLayout middle=column();pad(middle,11,0,4,0);
         LinearLayout heading=row();heading.addView(text(title,16,TEXT,true));
         if(approved){LinearLayout.LayoutParams b=lp(18,18);b.leftMargin=dp(6);heading.addView(badge(),b);}
         if(type.equals("bot")){TextView label=text("БОТ",10,MUTED,true);pad(label,8,2,8,2);heading.addView(label);}
         middle.addView(heading);
-        TextView snippet=text(preview.isEmpty()?"Начните общение":preview,13,MUTED,false);
-        snippet.setMaxLines(2);snippet.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        TextView snippet=text(preview.isEmpty()?"Начните общение":preview,14,MUTED,false);
+        snippet.setMaxLines(1);snippet.setEllipsize(android.text.TextUtils.TruncateAt.END);
         LinearLayout.LayoutParams sn=lp(-1,-2);sn.topMargin=dp(4);middle.addView(snippet,sn);
         item.addView(middle,new LinearLayout.LayoutParams(0,-2,1));
         LinearLayout trailing=column();trailing.setGravity(Gravity.RIGHT|Gravity.TOP);
@@ -581,14 +581,14 @@ public final class NativeMessengerActivity extends Activity {
         if(unread>0){space(trailing,8);TextView counter=text(String.valueOf(Math.min(unread,99)),12,TEXT,true);
             counter.setGravity(Gravity.CENTER);counter.setBackground(shape(BLUE,28));
             LinearLayout.LayoutParams cp=lp(25,25);cp.gravity=Gravity.RIGHT;trailing.addView(counter,cp);}
-        item.addView(trailing,lp(40,-2));container.addView(item,lp(-1,-2));
+        item.addView(trailing,lp(43,-2));container.addView(item,lp(-1,-2));
         View divider=new View(this);divider.setBackgroundColor(LINE);
-        LinearLayout.LayoutParams dl=lp(-1,1);dl.leftMargin=dp(83);container.addView(divider,dl);
+        LinearLayout.LayoutParams dl=lp(-1,1);dl.leftMargin=dp(77);container.addView(divider,dl);
         android.util.TypedValue rippleColor=new android.util.TypedValue();
         getTheme().resolveAttribute(android.R.attr.colorControlHighlight,rippleColor,true);
         android.graphics.drawable.Drawable ripple=new android.graphics.drawable.RippleDrawable(
                 android.content.res.ColorStateList.valueOf(0x303aaaff),
-                shape(PANEL,16),null);
+                shape(BG,0),null);
         item.setBackground(ripple);
         item.setFocusable(true);
         item.setOnClickListener(v->{
@@ -1304,22 +1304,22 @@ public final class NativeMessengerActivity extends Activity {
     }
 
     private void sectionLink(LinearLayout parent,String glyph,String title,String subtitle,Runnable action){
-        LinearLayout item=row();pad(item,13,11,13,11);
+        LinearLayout item=row();pad(item,12,8,12,8);
         TextView icon=text(glyph,24,BLUE,true);icon.setGravity(Gravity.CENTER);
-        icon.setBackground(shape(0xff263b49,13));item.addView(icon,lp(49,49));
+        icon.setBackground(shape(0xff263b49,13));item.addView(icon,lp(41,41));
         LinearLayout detail=column();pad(detail,14,0,0,0);
-        detail.addView(text(title,17,TEXT,true));space(detail,3);
+        detail.addView(text(title,16,TEXT,true));space(detail,2);
         detail.addView(text(subtitle,12,MUTED,false));
         item.addView(detail,new LinearLayout.LayoutParams(0,-2,1));
         TextView arrow=text("›",29,MUTED,false);item.addView(arrow);
-        parent.addView(item,lp(-1,75));item.setOnClickListener(v->action.run());
+        parent.addView(item,lp(-1,63));item.setOnClickListener(v->action.run());
     }
 
     private void loadSettings(int epoch){
-        list.removeAllViews();pad(list,17,8,17,27);
+        list.removeAllViews();pad(list,12,6,12,22);
         // Prominent Telegram-style account card, with status resolved from the server.
         LinearLayout accountHero=row();pad(accountHero,16,14,16,14);
-        accountHero.setBackground(shape(PANEL,24));
+        accountHero.setBackground(shape(PANEL,18));
         TextView accountAvatar=avatar(name(user),"direct");
         accountHero.addView(accountAvatar,lp(58,58));
         LinearLayout accountLabels=column();pad(accountLabels,14,1,0,0);
@@ -1343,14 +1343,14 @@ public final class NativeMessengerActivity extends Activity {
             }
         });
         list.addView(text("СООБЩЕСТВА",11,MUTED,true));space(list,9);
-        LinearLayout shortcuts=column();shortcuts.setBackground(shape(PANEL,24));
+        LinearLayout shortcuts=column();shortcuts.setBackground(shape(PANEL,18));
         list.addView(shortcuts,lp(-1,-2));
         sectionLink(shortcuts,"◉","Каналы","Мои каналы и подписки",()->showHome("channels"));
         sectionLink(shortcuts,"✦","Боты","Автоматические помощники",()->showHome("bots"));
         sectionLink(shortcuts,"◎","Контакты","Поиск людей по @username",()->showHome("contacts"));
-        space(list,22);
+        space(list,15);
         list.addView(text("АККАУНТ И КОНФИДЕНЦИАЛЬНОСТЬ",11,MUTED,true));space(list,9);
-        LinearLayout account=column();account.setBackground(shape(PANEL,24));
+        LinearLayout account=column();account.setBackground(shape(PANEL,18));
         list.addView(account,lp(-1,-2));
         sectionLink(account,"●","Аккаунт","Имя, @username и Vainah ID",()->showHome("profile"));
         sectionLink(account,"◈","Оформление","Тема и анимации интерфейса",()->{
@@ -1447,7 +1447,7 @@ public final class NativeMessengerActivity extends Activity {
                 .setPositiveButton("Понятно",null).show();
         });
         space(list,18);
-        list.addView(text("VAINAH MESSENGER  ·  0.10.1",12,MUTED,false));
+        list.addView(text("VAINAH MESSENGER  ·  0.10.2",12,MUTED,false));
     }
 
     private void loadContacts(int epoch){
@@ -1509,15 +1509,15 @@ public final class NativeMessengerActivity extends Activity {
     }
 
     private void loadProfile(int epoch){
-        list.removeAllViews();pad(list,20,18,20,28);
+        list.removeAllViews();pad(list,14,10,14,24);
         LinearLayout hero=column();hero.setGravity(Gravity.CENTER);
         TextView face=avatar(name(user),"direct");face.setTextSize(49);
-        hero.addView(face,lp(114,114));space(hero,19);
+        hero.addView(face,lp(104,104));space(hero,10);
         LinearLayout profileHeading=row();profileHeading.setGravity(Gravity.CENTER);
-        TextView display=text(name(user),28,TEXT,true);display.setGravity(Gravity.CENTER);
+        TextView display=text(name(user),25,TEXT,true);display.setGravity(Gravity.CENTER);
         profileHeading.addView(display);
         profileHeading.setContentDescription("Профиль Vainah: "+name(user));
-        hero.addView(profileHeading,lp(-1,43));space(hero,7);
+        hero.addView(profileHeading,lp(-1,38));space(hero,5);
         TextView emailLine=text(user.optString("email","Vainah ID"),14,MUTED,false);
         emailLine.setGravity(Gravity.CENTER);hero.addView(emailLine,lp(-1,27));space(hero,19);
         list.addView(hero,lp(-1,-2));
@@ -1539,8 +1539,8 @@ public final class NativeMessengerActivity extends Activity {
                     });
                 }).show();
         });
-        LinearLayout identity=column();pad(identity,18,19,18,18);
-        identity.setBackground(shape(PANEL,24));
+        LinearLayout identity=column();pad(identity,16,15,16,15);
+        identity.setBackground(shape(PANEL,18));
         list.addView(identity,lp(-1,-2));
         identity.addView(text("ЛИЧНАЯ ИНФОРМАЦИЯ",12,BLUE,true));space(identity,12);
         TextView handleText=text("Публичный @username: не задан",16,BLUE,true);
@@ -1592,7 +1592,8 @@ public final class NativeMessengerActivity extends Activity {
             verified=error==null&&data.optBoolean("verified");
             canManage=error==null&&data.optBoolean("can_manage");
             if(verified){
-                profileHeading.addView(badge(),lp(22,22));
+                LinearLayout.LayoutParams verifiedMark=lp(22,22);verifiedMark.leftMargin=dp(7);
+                profileHeading.addView(badge(),verifiedMark);
                 profileHeading.setContentDescription("Профиль Vainah: "+name(user)+", аккаунт подтверждён");
                 LinearLayout mark=row();mark.addView(text("Аккаунт подтверждён",15,TEXT,true));
                 mark.addView(badge(),lp(20,20));list.addView(mark);
