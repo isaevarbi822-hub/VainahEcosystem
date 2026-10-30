@@ -1372,7 +1372,24 @@ public final class NativeMessengerActivity extends Activity {
                 showHome("profile");
             });
         });
-        sectionLink(account,"▣","Устройства","Завершить сеансы на других устройствах",()->{
+        sectionLink(account,"▣","Устройства","Посмотреть активные сеансы",()->{
+            request("GET","/api/auth/sessions",null,(data,error)->{
+                if(error!=null){notice(error);return;}
+                JSONArray items=data.optJSONArray("items");
+                int total=items==null?0:items.length();
+                int others=0;
+                for(int i=0;i<total;i++){
+                    JSONObject entry=items.optJSONObject(i);
+                    if(entry!=null&&!entry.optBoolean("current"))others++;
+                }
+                new AlertDialog.Builder(this).setTitle("Активные сеансы")
+                    .setMessage("Активных сеансов: "+total+". Других: "+others+
+                        ". Названия устройств пока не сохраняются.")
+                    .setPositiveButton("Управление", (dialog,which)->showHome("settings"))
+                    .setNegativeButton("Закрыть",null).show();
+            });
+        });
+        sectionLink(account,"▣","Завершение других сеансов","Оставить только это устройство",()->{
             new AlertDialog.Builder(this).setTitle("Безопасность устройств")
                 .setMessage("Завершить все остальные сеансы Vainah? На других устройствах потребуется снова войти. Текущий сеанс останется активным.")
                 .setPositiveButton("Завершить другие сеансы",(dialog,which)->
