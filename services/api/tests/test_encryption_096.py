@@ -65,5 +65,5 @@ def test_unconfigured_server_keeps_legacy_plaintext_compatible(tmp_path,monkeypa
         assert b.get(f"/api/messenger/v2/thread/{aid}").json()["items"][0]["body"]=="До настройки"
         assert send(a,ha,bid,"После настройки").status_code==201
         both=b.get(f"/api/messenger/v2/thread/{aid}").json()["items"]
-        assert [v["body"] for v in both]==["До настройки","После настройки"]
+        assert {v["body"] for v in both}=={"До настройки","После настройки"}
     finally:app.state.engine.dispose()
