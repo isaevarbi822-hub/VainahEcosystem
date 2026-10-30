@@ -61,6 +61,7 @@ async function refreshVerified() {
 }
 async function openSection(name) {
   state.screen=name;
+  $('vm-workspace').classList.remove('vm-chat-open');
   $('vm-rail-chats').classList.toggle('active',name==='chats');
   $('vm-rail-settings').classList.toggle('active',name==='settings');
   for(const id of ['vm-rail-channels','vm-rail-bots']){
@@ -70,7 +71,7 @@ async function openSection(name) {
   $('vm-settings-panel').classList.toggle('hidden',name!=='settings');
   $('breadcrumb-name').textContent=({chats:'Сообщения',channels:'Каналы',bots:'Боты',settings:'Мой Vainah ID'})[name]||'Messenger';
   if(name==='chats'){
-    await mountStandaloneMessenger($('feature-root'),{api,state,showToast:toast});
+    await mountStandaloneMessenger($('feature-root'),{api,state,showToast:toast,openChannel,openBot});
   }else if(name==='channels' || name==='bots'){
     await openCommunity(name);
   }
@@ -141,12 +142,14 @@ async function openBot(item) {
   const root=$('feature-root');root.replaceChildren();
   const back=document.createElement('button');back.className='vm-button vm-soft';back.textContent='← Все боты';back.onclick=()=>openCommunity('bots');
   const title=document.createElement('h2');title.textContent=item.name;root.append(back,title);
+  if(item.owner){
   const form=document.createElement('form');form.className='vm-community-form';
   const trigger=document.createElement('input');trigger.placeholder='Ключевое слово';trigger.required=true;trigger.maxLength=80;
   const reply=document.createElement('textarea');reply.placeholder='Автоматический ответ';reply.required=true;reply.maxLength=1000;
   const button=document.createElement('button');button.className='vm-button vm-primary';button.textContent='Сохранить ответ';
   form.append(trigger,reply,button);root.append(form);
   form.onsubmit=async e=>{e.preventDefault();try{await api(`/api/community/bots/${item.id}/rules`,{method:'POST',body:{trigger:trigger.value,reply:reply.value}});form.reset();toast('Ответ добавлен');}catch(err){toast(err.message);}};
+  }
   const testForm=document.createElement('form');testForm.className='vm-community-form';
   const prompt=document.createElement('input');prompt.placeholder='Напишите боту тестовое сообщение';prompt.maxLength=500;prompt.required=true;
   const testButton=document.createElement('button');testButton.className='vm-button vm-soft';testButton.textContent='Проверить бота';
@@ -180,10 +183,26 @@ $('vm-auth-form').addEventListener('submit',async event=>{
 });
 $('vm-rail-chats').addEventListener('click',()=>openSection('chats'));
 $('vm-rail-settings').addEventListener('click',()=>openSection('settings'));
+function openCompose() {
+  if(state.screen!=='chats')openSection('chats').then(openCompose).catch(e=>toast(e.message));
+  else {
+    const sidebar=document.querySelector('.vchat-sidebar');
+    sidebar?.classList.toggle('new-open');
+    const field=document.querySelector('.vchat-new input');
+    if(sidebar?.classList.contains('new-open'))field?.focus();
+  }
+}
+$('vm-compose-action').addEventListener('click',openCompose);
+$('vm-floating-compose').addEventListener('click',openCompose);
+$('vm-search-action').addEventListener('click',()=>{
+  if(state.screen!=='chats')openSection('chats').then(()=>document.querySelector('.vchat-sidebar input[type=search]')?.focus());
+  else document.querySelector('.vchat-sidebar input[type=search]')?.focus();
+});
 for(const id of ['vm-rail-channels','vm-rail-bots']){const el=$(id);if(el)el.addEventListener('click',()=>openSection(id.slice(8)));}
 $('vm-logout').addEventListener('click',async()=>{
   try{await api('/api/auth/logout',{method:'POST'});}catch(e){toast(e.message);return;}
   state.user=null;state.csrf='';$('vm-workspace').classList.add('hidden');
+  $('vm-workspace').classList.remove('vm-chat-open');
   $('marketing').classList.remove('hidden');
 });
 $('vm-profile-form').addEventListener('submit',async e=>{
