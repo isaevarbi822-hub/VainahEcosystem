@@ -58,11 +58,14 @@ public final class NativeMedia {
     private final NativeApi api;
     private final Listener listener;
     private String contactId = "";
+    private boolean groupChat=false;
     private File captureFile;
     private String captureContact = "";
+    private boolean captureGroup=false;
     private MediaRecorder recorder;
     private File voiceFile;
     private String voiceContact;
+    private boolean voiceGroup=false;
     private long startedAt;
     private static final long MAX_FILE=20L * 1024 * 1024;
 
@@ -72,15 +75,17 @@ public final class NativeMedia {
         this.listener=listener;
     }
 
-    public void setContact(String target) { contactId=target==null?"":target; }
-    public void clearContact(){contactId="";}
+    public void setContact(String target,boolean group) {
+        contactId=target==null?"":target;groupChat=group;
+    }
+    public void clearContact(){contactId="";groupChat=false;}
 
     private void toast(String message){
         Toast.makeText(activity,message,Toast.LENGTH_LONG).show();
     }
 
     public void pickFile(){
-        if(contactId.isEmpty()){toast("Откройте личную переписку");return;}
+        if(contactId.isEmpty()){toast("Откройте переписку");return;}
         Intent picker=new Intent(Intent.ACTION_OPEN_DOCUMENT);
         picker.setType("*/*");
         picker.addCategory(Intent.CATEGORY_OPENABLE);
@@ -91,10 +96,11 @@ public final class NativeMedia {
     }
 
     public void captureRoundVideo(){
-        if(contactId.isEmpty()){toast("Откройте личную переписку");return;}
+        if(contactId.isEmpty()){toast("Откройте переписку");return;}
         try {
             captureFile=File.createTempFile("video-note-"+UUID.randomUUID()+"-",".mp4",activity.getCacheDir());
             captureContact=contactId;
+            captureGroup=groupChat;
             Uri output=FileProvider.getUriForFile(activity,
                     activity.getPackageName()+".media",captureFile);
             Intent camera=new Intent(MediaStore.ACTION_VIDEO_CAPTURE);
@@ -109,7 +115,7 @@ public final class NativeMedia {
 
     public void toggleVoice(){
         if(recorder!=null){stopVoice(true);return;}
-        if(contactId.isEmpty()){toast("Откройте личную переписку");return;}
+        if(contactId.isEmpty()){toast("Откройте переписку");return;}
         if(Build.VERSION.SDK_INT>=23 &&
                 activity.checkSelfPermission(Manifest.permission.RECORD_AUDIO)!=PackageManager.PERMISSION_GRANTED){
             activity.requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO},REQUEST_MIC);
@@ -128,6 +134,7 @@ public final class NativeMedia {
     private void startVoice(){
         try {
             voiceContact=contactId;
+            voiceGroup=groupChat;
             voiceFile=File.createTempFile("voice-"+UUID.randomUUID()+"-",".m4a",activity.getCacheDir());
             recorder=new MediaRecorder();
             recorder.setAudioSource(MediaRecorder.AudioSource.MIC);
@@ -165,7 +172,7 @@ public final class NativeMedia {
         voiceFile=null;
         String target=voiceContact;
         Uri uri=FileProvider.getUriForFile(activity,activity.getPackageName()+".media",finished);
-        sendUri(target,uri,finished.getName(),"audio/mp4",finished);
+        sendUri(target,voiceGroup,uri,finished.getName(),"audio/mp4",finished);
     }
 
     private void releaseRecorder(){
@@ -185,9 +192,9 @@ public final class NativeMedia {
         return "media-"+UUID.randomUUID();
     }
 
-    private void sendUri(String target,Uri uri,String filename,String mime,File temp){
+    private void sendUri(String target,boolean group,Uri uri,String filename,String mime,File temp){
         if(target==null || target.isEmpty()){if(temp!=null)temp.delete();return;}
-        api.uploadAttachment(target,uri,filename,mime,(response,error)->{
+        api.uploadAttachment(target,group,uri,filename,mime,(response,error)->{
             if(temp!=null)temp.delete();
             listener.onSent(target,error);
         });
@@ -197,7 +204,8 @@ public final class NativeMedia {
         if(requestCode==REQUEST_VIDEO_NOTE){
             File output=captureFile;
             String target=captureContact;
-            captureFile=null;captureContact="";
+            boolean group=captureGroup;
+            captureFile=null;captureContact="";captureGroup=false;
             if(resultCode!=Activity.RESULT_OK){
                 if(output!=null)output.delete();
                 return;
@@ -205,15 +213,16 @@ public final class NativeMedia {
             if(output!=null && output.length()>1500){
                 Uri uri=FileProvider.getUriForFile(activity,
                         activity.getPackageName()+".media",output);
-                sendUri(target,uri,output.getName(),"video/mp4",output);
+                sendUri(target,group,uri,output.getName(),"video/mp4",output);
             }else {
                 if(output!=null)output.delete();
                 Uri uri=data!=null?data.getData():null;
-                if(uri!=null)sendUri(target,uri,"video-note-"+UUID.randomUUID()+".mp4","video/mp4",null);
+                if(uri!=null)sendUri(target,group,uri,"video-note-"+UUID.randomUUID()+".mp4","video/mp4",null);
                 else toast("Камера не сохранила видеокружок");
             }
         }else if(requestCode==REQUEST_PICK && resultCode==Activity.RESULT_OK && data!=null){
             String target=contactId;
+            boolean group=groupChat;
             java.util.ArrayList<Uri> chosen=new java.util.ArrayList<>();
             if(data.getClipData()!=null){
                 ClipData clip=data.getClipData();
@@ -223,7 +232,7 @@ public final class NativeMedia {
             for(Uri uri:chosen){
                 String mime=activity.getContentResolver().getType(uri);
                 if(mime==null)mime="application/octet-stream";
-                sendUri(target,uri,displayName(uri),mime,null);
+                sendUri(target,group,uri,displayName(uri),mime,null);
             }
             if(chosen.size()>0)toast("Отправка: "+chosen.size()+" файл(ов)");
         }
@@ -233,7 +242,10 @@ public final class NativeMedia {
         String path=attachment.optString("url","");
         String mime=attachment.optString("type","application/octet-stream");
         String kind=attachment.optString("kind","file");
-        if(!path.startsWith("/api/messenger/v2/file/")){toast("Некорректное вложение");return;}
+        if(!path.startsWith("/api/messenger/v2/file/") &&
+                !path.matches("/api/messenger/v2/groups/[a-fA-F0-9-]{36}/file/[a-fA-F0-9-]{36}")){
+            toast("Некорректное вложение");return;
+        }
         toast("Загрузка медиа…");
         api.fetchAttachment(path,(file,error)->{
             if(error!=null){toast(error);return;}
