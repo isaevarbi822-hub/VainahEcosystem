@@ -189,6 +189,12 @@ public final class NativeApi {
     /** Bounded multipart upload; file content never enters a JSON string or public URL. */
     public void uploadAttachment(String contactId, boolean group, Uri uri, String desiredFilename,
                                  String contentType, Callback callback) {
+        uploadAttachment(contactId,group,uri,desiredFilename,contentType,
+                java.util.UUID.randomUUID().toString(),callback);
+    }
+
+    public void uploadAttachment(String contactId, boolean group, Uri uri, String desiredFilename,
+                                 String contentType, String uploadId, Callback callback) {
         mediaQueue.execute(() -> {
             HttpURLConnection conn=null;
             JSONObject result=new JSONObject();
@@ -222,7 +228,7 @@ public final class NativeApi {
                 conn.setRequestProperty("Cookie",cookie);
                 conn.setRequestProperty("X-CSRF-Token",csrf);
                 conn.setRequestProperty("Content-Type","multipart/form-data; boundary="+boundary);
-                conn.setRequestProperty("X-Upload-Id", java.util.UUID.randomUUID().toString());
+                conn.setRequestProperty("X-Upload-Id", uploadId);
                 try(OutputStream out=conn.getOutputStream();
                     InputStream input=activity.getContentResolver().openInputStream(uri)){
                     if(input==null)throw new IllegalArgumentException("Невозможно прочитать файл");
