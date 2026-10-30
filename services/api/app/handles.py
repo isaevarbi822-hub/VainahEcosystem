@@ -8,7 +8,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Mapped, Session, mapped_column
 from .database import Base, get_db
 from .public_ids import get_or_create_public_id, find_user_by_public_id
-from .models import User, MessengerBlock
+from .models import User, MessengerBlock, VerifiedAccount
 from .security import current_user, csrf_protect, enforce_origin
 
 router = APIRouter(prefix="/api/people", tags=["Public usernames"])
@@ -49,6 +49,7 @@ def blocked(db:Session,me:str,them:str)->bool:
 @router.get("/me")
 def me(db:Session=Depends(get_db),user:User=Depends(current_user)):
     return {"username":username_for(db,user.id),"display_name":user.display_name,
+            "verified":db.get(VerifiedAccount,user.id) is not None,
             "vainah_id":get_or_create_public_id(db,user.id)}
 
 @router.put("/username",dependencies=[Depends(csrf_protect)])
@@ -79,7 +80,9 @@ def search(q:str="",db:Session=Depends(get_db),user:User=Depends(current_user)):
     for row in rows:
         if row.user_id==user.id or blocked(db,user.id,row.user_id):continue
         person=db.get(User,row.user_id)
-        if person:items.append({"id":person.id,"display_name":person.display_name,"username":row.username})
+        if person:items.append({"id":person.id,"display_name":person.display_name,
+                                "verified":db.get(VerifiedAccount,person.id) is not None,
+                                "username":row.username})
     return {"items":items[:12]}
 
 @router.get("/id/{vainah_id}")
@@ -90,11 +93,14 @@ def lookup_vainah_id(vainah_id: str, db: Session = Depends(get_db),
     if not person or person.id == user.id or blocked(db, user.id, person.id):
         raise HTTPException(404, "Пользователь не найден")
     return {"person": {"id": person.id, "username": username_for(db, person.id),
-                       "display_name": person.display_name, "vainah_id": vainah_id}}
+                       "display_name": person.display_name, "vainah_id": vainah_id,
+                       "verified":db.get(VerifiedAccount,person.id) is not None}}
 
 @router.get("/{username}")
 def lookup(username:str,db:Session=Depends(get_db),user:User=Depends(current_user)):
     person=find_by_username(db,username)
     if not person or person.id==user.id or blocked(db,user.id,person.id):
         raise HTTPException(404,"Пользователь не найден")
-    return {"person":{"id":person.id,"username":username_for(db,person.id),"display_name":person.display_name}}
+    return {"person":{"id":person.id,"username":username_for(db,person.id),
+                      "display_name":person.display_name,
+                      "verified":db.get(VerifiedAccount,person.id) is not None}}
