@@ -156,3 +156,64 @@ body.messenger-only{margin:0;background:var(--vm-bg);color:var(--vm-ink);font:15
   .messenger-only .vm-community-list{padding-bottom:98px}
 }
 @media(prefers-reduced-motion:reduce){.vm-workspace .vchat-contact{transition:none}}
+
+
+/* Aurora motion system: smooth, low-cost transforms and accessible focus states. */
+.messenger-only{
+  --aurora-duration:220ms;
+  --aurora-ease:cubic-bezier(.2,.8,.2,1);
+  --aurora-focus:#82c7ff;
+}
+.messenger-only .vm-rail-item,
+.messenger-only .vchat-contact,
+.messenger-only .vchat-filter,
+.messenger-only .vm-floating-compose,
+.messenger-only .vchat-composer button{
+  transition:background-color var(--aurora-duration) ease,
+    color var(--aurora-duration) ease,
+    box-shadow var(--aurora-duration) ease,
+    transform var(--aurora-duration) var(--aurora-ease);
+}
+.messenger-only .vchat-contact:hover{background:rgba(88,155,232,.10)}
+.messenger-only .vchat-contact:active,
+.messenger-only .vm-rail-item:active,
+.messenger-only .vchat-composer button:active{transform:scale(.985)}
+.messenger-only .vm-floating-compose:hover{
+  transform:translateY(-3px);
+  box-shadow:0 14px 34px rgba(0,106,217,.32);
+}
+.messenger-only .vchat-contact:focus-visible,
+.messenger-only .vchat-filter:focus-visible,
+.messenger-only .vm-floating-compose:focus-visible,
+.messenger-only .vchat-composer button:focus-visible{
+  outline:3px solid var(--aurora-focus);
+  outline-offset:2px;
+}
+.messenger-only .vchat-area{
+  animation:aurora-enter 260ms var(--aurora-ease) both;
+}
+.messenger-only .vchat-contact.active{
+  box-shadow:inset 3px 0 0 #60b6ff;
+}
+@keyframes aurora-enter{
+  from{opacity:.65;transform:translateY(8px)}
+  to{opacity:1;transform:translateY(0)}
+}
+@media(max-width:700px){
+  .messenger-only .vchat.thread-open .vchat-area{
+    animation:aurora-chat-enter 240ms var(--aurora-ease) both;
+  }
+  @keyframes aurora-chat-enter{
+    from{opacity:.7;transform:translateX(16px)}
+    to{opacity:1;transform:translateX(0)}
+  }
+}
+@media(prefers-reduced-motion:reduce){
+  .messenger-only .vchat-area,
+  .messenger-only .vchat.thread-open .vchat-area{animation:none!important}
+  .messenger-only .vchat-contact,
+  .messenger-only .vchat-filter,
+  .messenger-only .vm-rail-item,
+  .messenger-only .vm-floating-compose,
+  .messenger-only .vchat-composer button{transition:none!important}
+}
