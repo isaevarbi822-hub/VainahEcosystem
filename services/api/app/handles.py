@@ -7,6 +7,7 @@ from sqlalchemy import ForeignKey, String, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Mapped, Session, mapped_column
 from .database import Base, get_db
+from .public_ids import get_or_create_public_id, find_user_by_public_id
 from .models import User, MessengerBlock
 from .security import current_user, csrf_protect, enforce_origin
 
@@ -47,7 +48,8 @@ def blocked(db:Session,me:str,them:str)->bool:
 
 @router.get("/me")
 def me(db:Session=Depends(get_db),user:User=Depends(current_user)):
-    return {"username":username_for(db,user.id),"display_name":user.display_name}
+    return {"username":username_for(db,user.id),"display_name":user.display_name,
+            "vainah_id":get_or_create_public_id(db,user.id)}
 
 @router.put("/username",dependencies=[Depends(csrf_protect)])
 def update_username(data:UsernameChange,request:Request,db:Session=Depends(get_db),
@@ -79,6 +81,16 @@ def search(q:str="",db:Session=Depends(get_db),user:User=Depends(current_user)):
         person=db.get(User,row.user_id)
         if person:items.append({"id":person.id,"display_name":person.display_name,"username":row.username})
     return {"items":items[:12]}
+
+@router.get("/id/{vainah_id}")
+def lookup_vainah_id(vainah_id: str, db: Session = Depends(get_db),
+                     user: User = Depends(current_user)):
+    """Exact-only ID lookup, never prefix enumeration. Honors both-way blocks."""
+    person = find_user_by_public_id(db, vainah_id)
+    if not person or person.id == user.id or blocked(db, user.id, person.id):
+        raise HTTPException(404, "Пользователь не найден")
+    return {"person": {"id": person.id, "username": username_for(db, person.id),
+                       "display_name": person.display_name, "vainah_id": vainah_id}}
 
 @router.get("/{username}")
 def lookup(username:str,db:Session=Depends(get_db),user:User=Depends(current_user)):
