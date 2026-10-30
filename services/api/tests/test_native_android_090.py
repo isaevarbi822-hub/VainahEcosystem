@@ -1,0 +1,39 @@
+"""Native Android Messenger routing and credential integration contract."""
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parents[3]
+ANDROID = ROOT / "apps/android/app"
+SOURCE = ANDROID / "src/main/java/no/vainah/ecosystem"
+
+
+def test_native_messenger_is_launched_without_webview():
+    launcher = (SOURCE / "MainActivity.java").read_text(encoding="utf-8")
+    native = (SOURCE / "NativeMessengerActivity.java").read_text(encoding="utf-8")
+    manifest = (ANDROID / "src/main/AndroidManifest.xml").read_text(encoding="utf-8")
+    assert "BuildConfig.VAINAH_NATIVE_MESSENGER" in launcher
+    assert "startActivity(new Intent(this, NativeMessengerActivity.class))" in launcher
+    assert "NativeMessengerActivity" in manifest
+    assert "WebView" not in native
+    assert "https://" not in native or "VAINAH_BASE_URL" in native
+
+
+def test_google_is_native_and_server_verified():
+    google = (SOURCE / "NativeGoogle.java").read_text(encoding="utf-8")
+    client = (SOURCE / "NativeApi.java").read_text(encoding="utf-8")
+    native = (SOURCE / "NativeMessengerActivity.java").read_text(encoding="utf-8")
+    assert "CredentialManager.create(activity)" in google
+    assert "GoogleIdTokenCredential.createFrom" in google
+    assert '"/api/auth/google"' in native
+    assert "AndroidKeyStore" in client
+    assert "AES/GCM/NoPadding" in client
+    assert "setInstanceFollowRedirects(false)" in client
+
+
+def test_real_chat_data_and_no_fake_conversations():
+    native = (SOURCE / "NativeMessengerActivity.java").read_text(encoding="utf-8")
+    for route in ("/api/messenger/v2/chats", "/api/messenger/v2/thread/",
+                  "/api/community/channels", "/api/community/bots"):
+        assert route in native
+    assert "Vainah пока не подключён" not in native
+    assert "https://ваш-сервис.onrender.com" not in native
