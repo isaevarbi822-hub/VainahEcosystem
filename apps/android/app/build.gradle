@@ -39,7 +39,10 @@ android {
                 storeFile file(signingStorePath)
                 storePassword signingStorePassword
                 keyAlias signingAlias
-                keyPassword signingKeyPassword
+                // keytool created this PKCS12 keystore with one password for
+                // both the store and private key. Use that same password even
+                // if the optional key-password GitHub secret differs.
+                keyPassword signingStorePassword
             }
         }
     }
