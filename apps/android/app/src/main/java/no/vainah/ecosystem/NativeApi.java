@@ -186,7 +186,7 @@ public final class NativeApi {
 
 
     /** Bounded multipart upload; file content never enters a JSON string or public URL. */
-    public void uploadAttachment(String contactId, Uri uri, String desiredFilename,
+    public void uploadAttachment(String contactId, boolean group, Uri uri, String desiredFilename,
                                  String contentType, Callback callback) {
         queue.execute(() -> {
             HttpURLConnection conn=null;
@@ -209,7 +209,10 @@ public final class NativeApi {
                 String mime=contentType==null?"application/octet-stream":
                         contentType.replaceAll("[^a-zA-Z0-9/+.\\-]","");
                 String boundary="vainah-"+java.util.UUID.randomUUID();
-                conn=(HttpURLConnection)new URL(origin+"/api/messenger/v2/send-file").openConnection();
+                String route=group?
+                    "/api/messenger/v2/groups/"+contactId+"/send-file":
+                    "/api/messenger/v2/send-file";
+                conn=(HttpURLConnection)new URL(origin+route).openConnection();
                 conn.setRequestMethod("POST");conn.setConnectTimeout(12000);
                 conn.setReadTimeout(45000);conn.setInstanceFollowRedirects(false);
                 conn.setDoOutput(true);conn.setChunkedStreamingMode(16384);
@@ -221,7 +224,7 @@ public final class NativeApi {
                 try(OutputStream out=conn.getOutputStream();
                     InputStream input=activity.getContentResolver().openInputStream(uri)){
                     if(input==null)throw new IllegalArgumentException("Невозможно прочитать файл");
-                    out.write(("--"+boundary+"\r\nContent-Disposition: form-data; name=\"contact_id\"\r\n\r\n"+
+                    if(!group)out.write(("--"+boundary+"\r\nContent-Disposition: form-data; name=\"contact_id\"\r\n\r\n"+
                             contactId+"\r\n").getBytes(StandardCharsets.UTF_8));
                     out.write(("--"+boundary+"\r\nContent-Disposition: form-data; name=\"file\"; filename=\""+
                             filename+"\"\r\nContent-Type: "+mime+"\r\n\r\n").getBytes(StandardCharsets.UTF_8));
@@ -264,7 +267,7 @@ public final class NativeApi {
             HttpURLConnection conn=null;
             File file=null;String error=null;
             try {
-                if(!path.matches("/api/messenger/v2/file/[a-fA-F0-9-]{36}") || cookie.isEmpty())
+                if(!path.matches("(/api/messenger/v2/file/[a-fA-F0-9-]{36}|/api/messenger/v2/groups/[a-fA-F0-9-]{36}/file/[a-fA-F0-9-]{36})") || cookie.isEmpty())
                     throw new IllegalArgumentException("Недоступный файл");
                 conn=(HttpURLConnection)new URL(origin+path).openConnection();
                 conn.setRequestMethod("GET");conn.setConnectTimeout(12000);
