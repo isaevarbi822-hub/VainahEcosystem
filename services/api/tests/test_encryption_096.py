@@ -67,3 +67,24 @@ def test_unconfigured_server_keeps_legacy_plaintext_compatible(tmp_path,monkeypa
         both=b.get(f"/api/messenger/v2/thread/{aid}").json()["items"]
         assert {v["body"] for v in both}=={"До настройки","После настройки"}
     finally:app.state.engine.dispose()
+
+def test_security_status_reports_configuration_not_secret(tmp_path,monkeypatch):
+    monkeypatch.delenv("VAINAH_MESSAGE_ENCRYPTION_KEY",raising=False)
+    app=create_app(f"sqlite:///{tmp_path/'status.db'}")
+    try:
+        guest=__import__("fastapi.testclient",fromlist=["TestClient"]).TestClient(app)
+        assert guest.get("/api/messenger/v2/security-status").status_code==401
+        user,uid,header=new_user(app,"status-user@example.net")
+        off=user.get("/api/messenger/v2/security-status")
+        assert off.status_code==200
+        assert off.json()["message_body_encryption_at_rest"] is False
+        assert off.json()["end_to_end_encryption"] is False
+        monkeypatch.setenv("VAINAH_MESSAGE_ENCRYPTION_KEY",KEY)
+        enabled=user.get("/api/messenger/v2/security-status")
+        assert enabled.status_code==200
+        assert enabled.json()["message_body_encryption_at_rest"] is True
+        assert enabled.json()["algorithm"]=="AES-256-GCM"
+        assert enabled.json()["older_messages_may_be_plaintext"] is True
+        assert KEY not in enabled.text
+    finally:
+        app.state.engine.dispose()
