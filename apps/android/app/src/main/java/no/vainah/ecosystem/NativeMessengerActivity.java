@@ -638,6 +638,6 @@ public final class NativeMessengerActivity extends Activity {
         JSONObject value=json("user_id",target);try{value.put("verified",approved);}catch(Exception ignored){}
         request("POST","/api/messenger/v2/verification/manage",value,(d,e)->notice(e!=null?e:"Статус обновлён"));
     }
-    @Override public void onBackPressed(){showHome("chats");}
+    @Override public void onBackPressed(){if(user.optString("id","").isEmpty()){super.onBackPressed();return;}showHome("chats");}
     @Override protected void onDestroy(){generation++;if(api!=null)api.close();super.onDestroy();}
 }
