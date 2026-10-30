@@ -724,9 +724,9 @@ public final class NativeMessengerActivity extends Activity {
             attach.setTextSize(24);
             composer.addView(attach,lp(41,46));
             attach.setOnClickListener(v->{
-                String[] options={"Фото и видео","Файлы и документы","Записать видеокружок"};
+                String[] mediaChoices={"Фото и видео","Файлы и документы","Записать видеокружок"};
                 new AlertDialog.Builder(this).setTitle("Прикрепить")
-                    .setItems(options,(dialog,which)->{
+                    .setItems(mediaChoices,(dialog,which)->{
                         if(media==null){notice("Медиа недоступно");return;}
                         if(which==2)media.captureRoundVideo();
                         else media.pickFile();
