@@ -24,6 +24,15 @@ def test_media_upload_idempotency(tmp_path):
         repeated = upload(payload)
         assert repeated.status_code == 201, repeated.text
         assert repeated.json()["id"] == first.json()["id"]
+        # A retry must be scoped to the original recipient as well as the file.
+        other, other_id, other_headers = new_user(app, "upload_c@example.net")
+        wrong_recipient = alice.post(
+            "/api/messenger/v2/send-file",
+            data={"contact_id": other_id},
+            files={"file": ("document.pdf", io.BytesIO(payload), "application/pdf")},
+            headers=headers,
+        )
+        assert wrong_recipient.status_code == 409
         conflict = upload(payload+b"altered")
         assert conflict.status_code == 409, conflict.text
         thread = bob.get(f"/api/messenger/v2/thread/{aid}")
