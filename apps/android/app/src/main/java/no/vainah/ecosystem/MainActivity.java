@@ -64,6 +64,12 @@ public final class MainActivity extends Activity {
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
+        if (BuildConfig.VAINAH_NATIVE_MESSENGER) {
+            // Messenger uses native Android views and Credential Manager, never WebView.
+            startActivity(new Intent(this, NativeMessengerActivity.class));
+            finish();
+            return;
+        }
         String saved = getPreferences(MODE_PRIVATE).getString("server_url", "");
         String configured = normalizeHttpsServer(saved);
         if (configured != null) configureServer(configured);
