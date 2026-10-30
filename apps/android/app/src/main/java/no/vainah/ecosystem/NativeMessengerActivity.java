@@ -1326,6 +1326,17 @@ public final class NativeMessengerActivity extends Activity {
         LinearLayout account=column();account.setBackground(shape(PANEL,24));
         list.addView(account,lp(-1,-2));
         sectionLink(account,"●","Аккаунт","Имя, @username и Vainah ID",()->showHome("profile"));
+        sectionLink(account,"✓","Верификация Vainah","Статус подтверждения аккаунта",()->{
+            request("GET","/api/messenger/v2/verification/me",null,(data,error)->{
+                if(error!=null){notice(error);return;}
+                boolean approved=data.optBoolean("verified");
+                boolean owner=data.optBoolean("can_manage");
+                String status=approved?"Аккаунт подтверждён Vainah ✓":"Аккаунт пока не подтверждён";
+                if(owner)status+="\\nВы можете выдавать и отзывать галочки другим пользователям.";
+                new AlertDialog.Builder(this).setTitle("Верификация Vainah")
+                    .setMessage(status).setPositiveButton("Понятно",null).show();
+            });
+        });
         sectionLink(account,"♧","Защита сообщений","Проверить состояние серверного шифрования",()->{
             request("GET","/api/messenger/v2/security-status",null,(data,error)->{
                 if(error!=null){notice("Не удалось проверить сервер: "+error);return;}
@@ -1417,6 +1428,8 @@ public final class NativeMessengerActivity extends Activity {
         TextView emailLine=text(user.optString("email","Vainah ID"),14,MUTED,false);
         emailLine.setGravity(Gravity.CENTER);hero.addView(emailLine,lp(-1,27));space(hero,19);
         list.addView(hero,lp(-1,-2));
+        TextView profileHint=text("ПРОФИЛЬ · VAINAH MESSENGER",11,MUTED,true);
+        profileHint.setGravity(Gravity.CENTER);list.addView(profileHint,lp(-1,30));
         Button editName=button("✎  Изменить имя",false);
         list.addView(editName,lp(-1,51));space(list,20);
         editName.setOnClickListener(v->{
