@@ -64,6 +64,7 @@ public final class NativeMessengerActivity extends Activity {
     private JSONObject user = new JSONObject();
     private boolean verified = false, canManage = false;
     private String tab = "chats", query = "", chatFilter = "all";
+    private boolean chatRefreshInProgress = false;
     private boolean inDetail = false;
     private int generation = 0;
     private Runnable pendingPeopleSearch;
@@ -285,7 +286,7 @@ public final class NativeMessengerActivity extends Activity {
 
     private void showHome(String target){
         inDetail = false;
-        tab=target;int epoch=++generation;reset();
+        tab=target;int epoch=++generation;chatRefreshInProgress=false;reset();
         LinearLayout top=row();pad(top,20,15,13,8);root.addView(top,lp(-1,75));
         TextView heading=text(target.equals("chats")?"Vainah":target.equals("contacts")?"Контакты":
                 target.equals("profile")?"Профиль":target.equals("channels")?"Каналы":
@@ -371,9 +372,11 @@ public final class NativeMessengerActivity extends Activity {
     }
 
     private void loadChats(int epoch) {
+        if(chatRefreshInProgress)return;
+        chatRefreshInProgress=true;
         request("GET","/api/messenger/v2/chats",null,(d,e)->{
             if(epoch!=generation)return;
-            if(e!=null){loadError(e);return;}chats=d.optJSONArray("items");if(chats==null)chats=new JSONArray();
+            if(e!=null){chatRefreshInProgress=false;loadError(e);return;}chats=d.optJSONArray("items");if(chats==null)chats=new JSONArray();
             request("GET","/api/messenger/v2/groups",null,(g,ge)->{
                 if(epoch!=generation)return;
                 groups=ge==null?g.optJSONArray("items"):new JSONArray();if(groups==null)groups=new JSONArray();
@@ -383,6 +386,7 @@ public final class NativeMessengerActivity extends Activity {
                     request("GET","/api/community/bots",null,(b,be)->{
                         if(epoch!=generation)return;
                         bots=be==null?b.optJSONArray("items"):new JSONArray();if(bots==null)bots=new JSONArray();
+                        chatRefreshInProgress=false;
                         renderChats();
                     });
                 });
@@ -629,7 +633,14 @@ public final class NativeMessengerActivity extends Activity {
     private void openThread(JSONObject contact,boolean group){
         String id=contact.optString("id");
         showDetail(name(contact),contact.optBoolean("verified"),
-                group?"Групповая переписка":"Личный чат · Vainah ID");
+                group?"Групповая переписка":
+                        (contact.optString("username","").isEmpty()?"Личный чат":
+                                "@"+contact.optString("username")));
+        LinearLayout threadHeader=(LinearLayout)root.getChildAt(0);
+        Button options=button("⋮",false);
+        options.setTextSize(26);options.setBackground(shape(BG,12));
+        threadHeader.addView(options,lp(46,46));
+        options.setOnClickListener(v->showChatOptions(contact,group));
         if(group && user.optString("id").equals(contact.optString("owner_id"))){
             Button addMember=button("＋ Добавить по @username",false);
             root.addView(addMember,lp(-1,49));
@@ -646,17 +657,31 @@ public final class NativeMessengerActivity extends Activity {
         Button send=button("➤",true);send.setTextSize(22);LinearLayout.LayoutParams sp=lp(53,48);sp.leftMargin=dp(9);
         composer.addView(send,sp);
         final int threadEpoch=generation;
+        final String[] lastRendered={"", ""};
+        final boolean[] refreshRunning={false};
         Runnable refresh=()->{
+            if(refreshRunning[0])return;
+            refreshRunning[0]=true;
             if(threadEpoch!=generation)return;
             String path=group?"/api/messenger/v2/groups/"+id+"/messages":"/api/messenger/v2/thread/"+id;
             request("GET",path,null,(data,error)->{
+                refreshRunning[0]=false;
                 if(threadEpoch!=generation)return;
-                if(error!=null){notice(error);return;}
+                if(error!=null){
+                    if(!error.equals(lastRendered[1]))notice(error);
+                    lastRendered[1]=error;
+                    return;
+                }
+                lastRendered[1]="";
+                JSONArray items=data.optJSONArray("items");
+                if(items==null)return;
+                String signature=items.toString();
+                if(signature.equals(lastRendered[0]))return;
+                lastRendered[0]=signature;
                 View child=scroll.getChildAt(0);
                 boolean stickToBottom=child==null || messages.getChildCount()==0 ||
                         child.getHeight()-scroll.getScrollY()-scroll.getHeight()<dp(120);
                 messages.removeAllViews();
-                JSONArray items=data.optJSONArray("items");if(items==null)return;
                 for(int i=0;i<items.length();i++){
                     JSONObject message=items.optJSONObject(i);if(message==null)continue;
                     String content=message.optString("body","");
@@ -668,8 +693,19 @@ public final class NativeMessengerActivity extends Activity {
                 if(stickToBottom)scroll.post(()->{
                     if(threadEpoch==generation)scroll.fullScroll(View.FOCUS_DOWN);
                 });
-                if(!group)request("POST","/api/messenger/v2/thread/"+id+"/read",new JSONObject(),(ok,ignored)->{});
-                else if(items.length()>0)request("POST","/api/messenger/v2/groups/"+id+"/read",new JSONObject(),(ok,ignored)->{});
+                if(items.length()>0){
+                    boolean unread=false;
+                    for(int i=0;i<items.length();i++){
+                        JSONObject message=items.optJSONObject(i);
+                        if(message!=null && !message.optBoolean("mine") &&
+                                (group || message.isNull("read_at"))){unread=true;break;}
+                    }
+                    if(unread){
+                        String readPath=group?"/api/messenger/v2/groups/"+id+"/read":
+                                "/api/messenger/v2/thread/"+id+"/read";
+                        request("POST",readPath,new JSONObject(),(ok,ignored)->{});
+                    }
+                }
             });
         };
         send.setOnClickListener(v->{
@@ -682,7 +718,9 @@ public final class NativeMessengerActivity extends Activity {
                 if(threadEpoch!=generation)return;
                 send.setEnabled(true);
                 if(error!=null){notice(error);return;}
-                input.setText("");refresh.run();
+                // Do not erase a new draft typed while the previous message was sending.
+                if(input.getText().toString().trim().equals(body))input.setText("");
+                refresh.run();
             });
         });
         refresh.run();
@@ -693,6 +731,85 @@ public final class NativeMessengerActivity extends Activity {
                 handler.postDelayed(this,10000);
             }
         },10000);
+    }
+
+    private void showChatOptions(JSONObject contact,boolean group){
+        String id=contact.optString("id");
+        if(group){
+            String[] items={"Участники группы","Пригласить по @username","Покинуть группу"};
+            new AlertDialog.Builder(this).setTitle(name(contact))
+                .setItems(items,(dialog,which)->{
+                    if(which==0){
+                        request("GET","/api/messenger/v2/groups/"+id,null,(data,error)->{
+                            if(error!=null){notice(error);return;}
+                            JSONArray people=data.optJSONArray("people");
+                            StringBuilder info=new StringBuilder("Участники: "+data.optInt("members")+"\n\n");
+                            if(people!=null)for(int i=0;i<people.length();i++){
+                                JSONObject person=people.optJSONObject(i);
+                                if(person!=null)info.append("• ").append(name(person)).append("\n");
+                            }
+                            new AlertDialog.Builder(this).setTitle(name(contact))
+                                .setMessage(info.toString()).setPositiveButton("Закрыть",null).show();
+                        });
+                    }else if(which==1){
+                        request("GET","/api/messenger/v2/groups/"+id,null,(data,error)->{
+                            if(error!=null){notice(error);return;}
+                            if(!user.optString("id").equals(data.optString("owner_id"))){
+                                notice("Приглашать может только администратор");return;
+                            }
+                            promptUsernameInvite("/api/messenger/v2/groups/"+id+"/invite","Добавить в группу");
+                        });
+                    }else{
+                        new AlertDialog.Builder(this).setTitle("Покинуть группу?")
+                            .setMessage("Вы перестанете получать сообщения этой группы.")
+                            .setPositiveButton("Покинуть",(d,w)->request("DELETE",
+                                "/api/messenger/v2/groups/"+id+"/leave",null,(response,error)->{
+                                    if(error!=null)notice(error);else showHome("chats");
+                                }))
+                            .setNegativeButton("Отмена",null).show();
+                    }
+                }).setNegativeButton("Закрыть",null).show();
+            return;
+        }
+        boolean pinned=contact.optBoolean("pinned"), muted=contact.optBoolean("muted");
+        boolean archived=contact.optBoolean("archived"), blocked=contact.optBoolean("blocked");
+        String[] actions={"Информация",pinned?"Открепить":"Закрепить",
+                muted?"Включить звук":"Без звука",
+                archived?"Вернуть из архива":"В архив",
+                blocked?"Разблокировать":"Заблокировать"};
+        new AlertDialog.Builder(this).setTitle(name(contact))
+            .setItems(actions,(dialog,which)->{
+                if(which==0){
+                    String handle=contact.optString("username","");
+                    String info=handle.isEmpty()?"Публичный ник пока не задан":"@"+handle;
+                    new AlertDialog.Builder(this).setTitle(name(contact))
+                        .setMessage(info+"\n\nДля поиска по Vainah ID используйте раздел «Контакты».")
+                        .setPositiveButton("Закрыть",null).show();
+                    return;
+                }
+                if(which==4){
+                    String method=blocked?"DELETE":"PUT";
+                    new AlertDialog.Builder(this).setTitle(blocked?"Разблокировать контакт?":"Заблокировать контакт?")
+                        .setMessage(blocked?"После разблокировки вы снова сможете переписываться.":"Этот человек не сможет отправлять вам новые сообщения.")
+                        .setPositiveButton("Подтвердить",(d,w)->request(method,
+                            "/api/messenger/v2/block/"+id,null,(data,error)->{
+                                if(error!=null){notice(error);return;}
+                                try{contact.put("blocked",!blocked);}catch(Exception ignored){}
+                                notice(blocked?"Контакт разблокирован":"Контакт заблокирован");
+                            })).setNegativeButton("Отмена",null).show();
+                    return;
+                }
+                String field=which==1?"pinned":which==2?"muted":"archived";
+                boolean updated=which==1?!pinned:which==2?!muted:!archived;
+                JSONObject body=new JSONObject();
+                try{body.put(field,updated);}catch(Exception ignored){}
+                request("PATCH","/api/messenger/v2/preferences/"+id,body,(data,error)->{
+                    if(error!=null){notice(error);return;}
+                    try{contact.put(field,updated);}catch(Exception ignored){}
+                    notice(updated?"Настройка включена":"Настройка выключена");
+                    if(which==3){showHome("chats");}
+                });
+            }).setNegativeButton("Закрыть",null).show();
     }
 
     private void addBubble(LinearLayout panel,String body,boolean mine,String timestamp,boolean deleted){
