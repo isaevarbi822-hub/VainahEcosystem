@@ -96,7 +96,8 @@ def test_new_settings_routes_assets_and_db_health(tmp_path):
     with TestClient(app) as c:
         assert c.get('/api/health').json()['database']=='connected'
         html=c.get('/').text
-        assert 'screen-settings' in html and 'profile-form' in html and 'mobile-tabs' in html
+        assert 'Vainah Messenger' in html and 'vm-auth-form' in html
+        assert 'screen-settings' in c.get('/app/notes').text
         css=c.get('/assets/styles.css').text
         assert '.mobile-tabs' in css
         assert c.get('/manifests/notes.webmanifest').json()['name']=='Vainah Notes'
