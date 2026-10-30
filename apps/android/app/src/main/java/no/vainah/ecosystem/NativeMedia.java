@@ -209,8 +209,23 @@ public final class NativeMedia {
     private void sendUri(String target,boolean group,Uri uri,String filename,String mime,File temp){
         if(target==null || target.isEmpty()){if(temp!=null)temp.delete();return;}
         api.uploadAttachment(target,group,uri,filename,mime,(response,error)->{
-            if(temp!=null)temp.delete();
-            listener.onSent(target,error);
+            if(error==null){
+                if(temp!=null)temp.delete();
+                listener.onSent(target,null);
+            }else{
+                // A failed upload must not silently discard the original recording.
+                // Keep the cache file for this session and offer a manual retry.
+                listener.onSent(target,error);
+                if(temp!=null && temp.exists()){
+                    new AlertDialog.Builder(activity)
+                            .setTitle("Не удалось отправить медиа")
+                            .setMessage("Запись сохранена временно. Повторить отправку?")
+                            .setPositiveButton("Повторить",(dialog,which)->
+                                    sendUri(target,group,uri,filename,mime,temp))
+                            .setNegativeButton("Удалить",(dialog,which)->temp.delete())
+                            .show();
+                }
+            }
         });
     }
 
