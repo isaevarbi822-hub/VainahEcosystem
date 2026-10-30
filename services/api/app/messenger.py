@@ -6,6 +6,8 @@ layout is /api/messenger/v2 to keep existing 0.4 clients compatible.
 from __future__ import annotations
 
 import os
+import hashlib
+import uuid
 import time
 from collections import defaultdict, deque
 from threading import Lock
@@ -19,7 +21,7 @@ from sqlalchemy.orm import Session
 from .database import get_db
 from .models import (
     DirectMessage, MessageAttachment, MessageDetails, MessageReaction,
-    MessageReceipt, MessengerBlock, MessengerReport, MessengerChatPreference, MessageReply, User, VerifiedAccount, uid,
+    MessageReceipt, MediaUploadRequest, MessengerBlock, MessengerReport, MessengerChatPreference, MessageReply, User, VerifiedAccount, uid,
 )
 from .security import csrf_protect, current_user, enforce_origin
 from .suite import detected_type
@@ -327,10 +329,31 @@ async def send_file(request: Request, contact_id: str = Form(...), file: UploadF
     if len(content) > MEDIA_LIMITS[mime]:
         raise HTTPException(413, "Размер файла превышает лимит формата")
     name = (file.filename or "file").replace("\\", "/").split("/")[-1][:160]
+    upload_id = request.headers.get("X-Upload-Id", "").strip()
+    if upload_id:
+        try:
+            uuid.UUID(upload_id)
+        except ValueError:
+            raise HTTPException(422, "Invalid upload identifier")
+    digest = hashlib.sha256(contact_id.encode() + content).hexdigest()
+    if upload_id:
+        prior = db.scalar(select(MediaUploadRequest).where(
+            MediaUploadRequest.sender_id == user.id,
+            MediaUploadRequest.request_key == upload_id))
+        if prior:
+            if prior.fingerprint != digest:
+                raise HTTPException(409, "Upload identifier already used")
+            original = db.get(DirectMessage, prior.message_id)
+            if original is None:
+                raise HTTPException(409, "Original message unavailable")
+            return view_message(db, original, user.id)
     msg = DirectMessage(sender_id=user.id, recipient_id=contact_id, body="")
     db.add(msg)
     db.flush()
     db.add(MessageAttachment(message_id=msg.id, filename=name, media_type=mime, size=len(content), content=content))
+    if upload_id:
+        db.add(MediaUploadRequest(sender_id=user.id, request_key=upload_id,
+                                  fingerprint=digest, message_id=msg.id))
     db.commit()
     db.refresh(msg)
     inform(request, [user.id, contact_id], "message.changed", contact_id=user.id, sender_id=user.id)
