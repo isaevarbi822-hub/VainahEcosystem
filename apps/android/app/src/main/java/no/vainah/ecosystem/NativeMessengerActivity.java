@@ -1384,7 +1384,7 @@ public final class NativeMessengerActivity extends Activity {
                     long created=item==null?0:item.optLong("created_at",0);
                     long expires=item==null?0:item.optLong("expires_at",0);
                     String title=current?"Текущий сеанс":"Другой сеанс "+(i+1);
-                    labels[i]=title+" · вход: "+formatTime(created)+" · до: "+formatTime(expires);
+                    labels[i]=title+" · вход: "+new SimpleDateFormat("dd.MM.yyyy HH:mm",Locale.getDefault()).format(new Date(created*1000L))+" · до: "+new SimpleDateFormat("dd.MM.yyyy HH:mm",Locale.getDefault()).format(new Date(expires*1000L));
                 }
                 new AlertDialog.Builder(this).setTitle("Активные сеансы")
                     .setItems(labels,(dialog,index)->{
