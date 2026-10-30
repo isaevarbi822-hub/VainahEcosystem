@@ -150,7 +150,9 @@ public final class NativeApi {
                     String setCookie = connection.getHeaderField("Set-Cookie");
                     if (setCookie != null && setCookie.contains("=")) {
                         String pair = setCookie.split(";", 2)[0];
-                        if (pair.matches("[A-Za-z0-9_\\-]+=[^;]*") && !pair.endsWith("=")) cookie = pair;
+                        // Never persist unrelated proxy/application cookies as an auth session.
+                        if (pair.startsWith("vainah_session=") && !pair.endsWith("=")
+                                && !pair.contains("\\n") && !pair.contains("\\r")) cookie = pair;
                     }
                     if (result.has("csrf_token")) csrf = result.optString("csrf_token", "");
                     if (!cookie.isEmpty()) store();
