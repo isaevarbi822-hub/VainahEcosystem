@@ -23,7 +23,7 @@ def test_unique_names_search_privacy_and_csrf(users):
     assert c.put("/api/people/username",headers=hc,json={"username":"bad.name"}).status_code==422
     assert a.get("/api/people/me").json()["username"]=="alice_vainah"
     assert b.get("/api/people/search?q=@ali").json()["items"]==[
-        {"id":aid,"display_name":"alice","username":"alice_vainah"}]
+        {"id":aid,"display_name":"alice","verified":False,"username":"alice_vainah"}]
     assert not any("email" in x for x in b.get("/api/people/search?q=ali").json()["items"])
     assert not a.get("/api/people/search?q=alice_vainah").json()["items"]
     assert b.get("/api/people/@Alice_Vainah").json()["person"]["id"]==aid
