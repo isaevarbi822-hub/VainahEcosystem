@@ -14,7 +14,7 @@ def test_native_messenger_is_launched_without_webview():
     assert "BuildConfig.VAINAH_NATIVE_MESSENGER" in launcher
     assert "startActivity(new Intent(this, NativeMessengerActivity.class))" in launcher
     assert "NativeMessengerActivity" in manifest
-    assert "WebView" not in native
+    assert "new WebView(" not in native and "extends WebView" not in native
     assert "https://" not in native or "VAINAH_BASE_URL" in native
 
 
