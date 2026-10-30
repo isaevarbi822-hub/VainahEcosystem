@@ -49,4 +49,12 @@ def test_native_messenger_091_groups_and_safe_navigation():
     assert 'if(threadEpoch!=generation)return;' in native
     assert "stickToBottom" in native
     assert 'inDetail' in native
-    assert "versionName '0.9.1'" in gradle
+    assert "versionName '0.9.2'" in gradle
+
+
+def test_native_092_usernames_and_invites():
+    native = (SOURCE / "NativeMessengerActivity.java").read_text(encoding="utf-8")
+    for marker in ("/api/people/username", "/api/people/search?q=", "/api/people/me",
+                   "/api/community/channels/invitations", "/api/messenger/v2/groups/"):
+        assert marker in native
+    assert 'new JSONArray(unique)' in native
