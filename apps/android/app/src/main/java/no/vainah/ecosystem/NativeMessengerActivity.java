@@ -1032,8 +1032,9 @@ public final class NativeMessengerActivity extends Activity {
     private LinearLayout addBubble(LinearLayout panel,String body,boolean mine,String timestamp,boolean deleted,boolean read){
         LinearLayout line=row();line.setGravity(mine?Gravity.RIGHT:Gravity.LEFT);
         TextView bubble=text(deleted?"Сообщение удалено":body,15,TEXT,false);
-        pad(bubble,14,10,14,10);bubble.setMaxWidth(dp(300));
-        bubble.setBackground(shape(mine?0xff3e5baf:PANEL2,16));
+        pad(bubble,16,12,16,12);bubble.setMaxWidth(dp(320));
+        bubble.setLineSpacing(dp(2),1.0f);
+        bubble.setBackground(shape(mine?0xff295c9b:0xff26364c,19));
         LinearLayout.LayoutParams cell=lp(-2,-2);cell.setMargins(0,dp(5),0,dp(5));
         line.addView(bubble,cell);panel.addView(line,lp(-1,-2));
         if(!timestamp.isEmpty()){
