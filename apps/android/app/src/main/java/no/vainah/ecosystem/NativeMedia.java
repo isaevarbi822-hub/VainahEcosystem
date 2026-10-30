@@ -156,6 +156,7 @@ public final class NativeMedia {
         }catch(Exception ex){
             releaseRecorder();
             if(voiceFile!=null)voiceFile.delete();
+            voiceFile=null;
             toast("Не удалось начать запись голоса");
             listener.onRecording(false);
         }
@@ -177,14 +178,21 @@ public final class NativeMedia {
         File finished=voiceFile;
         voiceFile=null;
         String target=voiceContact;
-        Uri uri=FileProvider.getUriForFile(activity,activity.getPackageName()+".media",finished);
-        sendUri(target,voiceGroup,uri,finished.getName(),"audio/mp4",finished);
+        try {
+            Uri uri=FileProvider.getUriForFile(activity,activity.getPackageName()+".media",finished);
+            sendUri(target,voiceGroup,uri,finished.getName(),"audio/mp4",finished);
+        }catch(RuntimeException ex){
+            finished.delete();
+            toast("Не удалось подготовить голосовое сообщение");
+        }
     }
 
     private void releaseRecorder(){
-        if(recorder!=null){
-            try{recorder.reset();recorder.release();}catch(Exception ignored){}
-            recorder=null;
+        MediaRecorder active=recorder;
+        recorder=null;
+        if(active!=null){
+            try{active.reset();}catch(RuntimeException ignored){}
+            try{active.release();}catch(RuntimeException ignored){}
         }
     }
 
