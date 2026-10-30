@@ -820,6 +820,12 @@ public final class NativeMessengerActivity extends Activity {
                         content+="\n(изменено)";
                     LinearLayout bubble=addBubble(messages,content,own,
                             formatTime(message.optLong("created_at")),message.optBoolean("deleted"),read);
+                    // Load a bounded number of photo/video previews after messages appear.
+                    // Full-size media is fetched only if the user taps the thumbnail.
+                    if(media!=null && attachment!=null && !message.optBoolean("deleted") &&
+                            i>=Math.max(0,items.length()-12)){
+                        media.addInlinePreview(messages,attachment,own);
+                    }
                     JSONArray reactions=message.optJSONArray("reactions");
                     if(reactions!=null && reactions.length()>0){
                         StringBuilder emoji=new StringBuilder();
