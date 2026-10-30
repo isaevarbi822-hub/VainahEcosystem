@@ -132,6 +132,16 @@ async def handle_action(ws: WebSocket, hub: LiveHub, user: str, data: dict) -> N
         await hub._send(ws, {"type": "error", "message": "Слишком много запросов"})
         return
     hub.expire_calls()
+    if kind == "typing":
+        target = data.get("to")
+        if not isinstance(target,str) or len(target)!=36 or target==user:
+            return
+        with ws.app.state.session_factory() as db:
+            peer=db.get(User,target)
+            allowed = bool(peer) and not block_exists(db,user,target) and not block_exists(db,target,user)
+        if allowed and hub.clients.get(target):
+            hub.publish([target],{"type":"typing","from":user})
+        return
     if kind == "call.invite":
         target = data.get("to")
         media = data.get("media")
