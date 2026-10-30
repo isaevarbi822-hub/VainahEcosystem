@@ -807,7 +807,8 @@ public final class NativeMessengerActivity extends Activity {
                                 "\nНажмите для просмотра";
                     }
                     if(group && !message.optBoolean("mine") && !message.optBoolean("deleted"))
-                        content=message.optString("sender","Участник")+":\n"+content;
+                        content=message.optString("sender","Участник")+
+                                (message.optBoolean("sender_verified")?" ✓":"")+":\n"+content;
                     boolean own=message.optBoolean("mine");
                     boolean read=!message.isNull("read_at") && message.optLong("read_at")>0;
                     JSONObject linked=message.optJSONObject("reply_to");
