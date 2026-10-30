@@ -64,12 +64,13 @@ async function openSection(name) {
   $('vm-workspace').classList.remove('vm-chat-open');
   $('vm-rail-chats').classList.toggle('active',name==='chats');
   $('vm-rail-settings').classList.toggle('active',name==='settings');
+  $('vm-floating-compose').classList.toggle('hidden',name!=='chats');
   for(const id of ['vm-rail-channels','vm-rail-bots']){
     const el=$(id);if(el)el.classList.toggle('active',name===id.slice(8));
   }
   $('screen-feature').classList.toggle('hidden',name==='settings');
   $('vm-settings-panel').classList.toggle('hidden',name!=='settings');
-  $('breadcrumb-name').textContent=({chats:'Сообщения',channels:'Каналы',bots:'Боты',settings:'Мой Vainah ID'})[name]||'Messenger';
+  $('breadcrumb-name').textContent=({chats:'Vainah',channels:'Каналы',bots:'Боты',settings:'Настройки'})[name]||'Messenger';
   if(name==='chats'){
     await mountStandaloneMessenger($('feature-root'),{api,state,showToast:toast,openChannel,openBot});
   }else if(name==='channels' || name==='bots'){
