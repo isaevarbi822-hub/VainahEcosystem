@@ -2,6 +2,12 @@ plugins { id 'com.android.application' }
 
 def messengerVariant = (project.findProperty('VAINAH_MESSENGER') ?: 'false').toString().equalsIgnoreCase('true')
 
+def signingStorePath = System.getenv('VAINAH_ANDROID_SIGNING_STORE')
+def signingStorePassword = System.getenv('VAINAH_ANDROID_SIGNING_STORE_PASSWORD')
+def signingAlias = System.getenv('VAINAH_ANDROID_SIGNING_KEY_ALIAS')
+def signingKeyPassword = System.getenv('VAINAH_ANDROID_SIGNING_KEY_PASSWORD')
+def officialSigning = signingStorePath && signingStorePassword && signingAlias && signingKeyPassword
+
 android {
     namespace 'no.vainah.ecosystem'
     compileSdk 36
@@ -27,6 +33,23 @@ android {
         ]
     }
 
+    signingConfigs {
+        vainah {
+            if (officialSigning) {
+                storeFile file(signingStorePath)
+                storePassword signingStorePassword
+                keyAlias signingAlias
+                keyPassword signingKeyPassword
+            }
+        }
+    }
+    buildTypes {
+        debug {
+            // Stable signing certificate is required to register Android
+            // OAuth clients reliably across separate GitHub Actions runners.
+            if (officialSigning) signingConfig signingConfigs.vainah
+        }
+    }
     buildFeatures { buildConfig true }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
