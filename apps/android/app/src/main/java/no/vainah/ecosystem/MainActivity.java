@@ -22,6 +22,8 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.Button;
+import android.widget.EditText;
+import android.widget.Toast;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -35,11 +37,37 @@ public final class MainActivity extends Activity {
     private PermissionRequest pendingMediaPermission;
     private String[] pendingMediaResources;
     private ValueCallback<Uri[]> fileChooserCallback;
-    private final String homeUrl = BuildConfig.VAINAH_BASE_URL + BuildConfig.VAINAH_START_PATH;
-    private final Uri trustedUri = Uri.parse(BuildConfig.VAINAH_BASE_URL);
+    private String baseUrl;
+    private String homeUrl;
+    private Uri trustedUri;
+    private EditText serverAddress;
+
+    private static String normalizeHttpsServer(String raw) {
+        if (raw == null) return null;
+        String value = raw.trim().replaceAll("/+$", "");
+        try {
+            Uri uri = Uri.parse(value);
+            if (!"https".equalsIgnoreCase(uri.getScheme())) return null;
+            if (uri.getHost() == null || uri.getHost().isEmpty()) return null;
+            if (uri.getUserInfo() != null || uri.getFragment() != null || uri.getQuery() != null) return null;
+            if (!uri.getPath().isEmpty()) return null;
+            return value;
+        } catch (RuntimeException ignored) { return null; }
+    }
+
+    private void configureServer(String address) {
+        baseUrl = address;
+        homeUrl = baseUrl + BuildConfig.VAINAH_START_PATH;
+        trustedUri = Uri.parse(baseUrl);
+    }
+
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
+        String saved = getPreferences(MODE_PRIVATE).getString("server_url", "");
+        String configured = normalizeHttpsServer(saved);
+        if (configured != null) configureServer(configured);
+        else configureServer(BuildConfig.VAINAH_BASE_URL);
         getWindow().setStatusBarColor(Color.rgb(10, 16, 28));
         getWindow().setNavigationBarColor(Color.rgb(10, 16, 28));
         FrameLayout root = new FrameLayout(this);
@@ -127,7 +155,14 @@ public final class MainActivity extends Activity {
         errorView.setVisibility(View.GONE);
         root.addView(errorView, new FrameLayout.LayoutParams(-1, -1));
         setContentView(root);
-        webView.loadUrl(homeUrl);
+        if (BuildConfig.VAINAH_BASE_URL.startsWith("http://127.0.0.1") &&
+            normalizeHttpsServer(saved) == null) {
+            // A production APK must not pretend loopback refers to its Render host.
+            // The user can enter the HTTPS address once and retain it locally.
+            errorView.setVisibility(View.VISIBLE);
+        } else {
+            webView.loadUrl(homeUrl);
+        }
     }
 
     private boolean sameOrigin(Uri uri) {
@@ -150,19 +185,51 @@ public final class MainActivity extends Activity {
         heading.setTextColor(Color.WHITE);
         layout.addView(heading);
         TextView note = new TextView(this);
-        note.setText("Для USB-разработки запустите Vainah API на компьютере и выполните adb reverse tcp:8000 tcp:8000. Для публикации требуется HTTPS-сервер.");
+        note.setText("Введите HTTPS-адрес своего сервера Vainah на Render. Он сохранится на этом телефоне. Если сервер временно недоступен, проверьте интернет и попробуйте ещё раз.");
         note.setTextColor(Color.rgb(163, 180, 208));
         note.setTextSize(15);
         note.setPadding(0, 22, 0, 30);
         layout.addView(note);
+        serverAddress = new EditText(this);
+        serverAddress.setSingleLine(true);
+        serverAddress.setInputType(android.text.InputType.TYPE_CLASS_TEXT |
+            android.text.InputType.TYPE_TEXT_VARIATION_URI);
+        serverAddress.setHint("https://ваш-сервис.onrender.com");
+        serverAddress.setText(normalizeHttpsServer(baseUrl) != null ? baseUrl : "");
+        serverAddress.setTextColor(Color.WHITE);
+        serverAddress.setHintTextColor(Color.rgb(156, 172, 199));
+        layout.addView(serverAddress, new LinearLayout.LayoutParams(-1, -2));
+        Button connect = new Button(this);
+        connect.setText("Подключить Vainah");
+        connect.setOnClickListener(v -> {
+            String selected = normalizeHttpsServer(serverAddress.getText().toString());
+            if (selected == null) {
+                serverAddress.setError("Укажите HTTPS-адрес без пути и параметров");
+                return;
+            }
+            getPreferences(MODE_PRIVATE).edit().putString("server_url", selected).apply();
+            configureServer(selected);
+            connectionFailed = false;
+            errorView.setVisibility(View.GONE);
+            webView.loadUrl(homeUrl);
+        });
+        layout.addView(connect, new LinearLayout.LayoutParams(-1, -2));
         Button retry = new Button(this);
         retry.setText("Повторить подключение");
-        retry.setOnClickListener(v -> { errorView.setVisibility(View.GONE); webView.loadUrl(homeUrl); });
+        retry.setOnClickListener(v -> {
+            errorView.setVisibility(View.GONE);
+            webView.loadUrl(homeUrl);
+        });
         layout.addView(retry);
         return layout;
     }
 
-    private void showError() { runOnUiThread(() -> { if (errorView != null) errorView.setVisibility(View.VISIBLE); }); }
+    private void showError() { runOnUiThread(() -> {
+        if (errorView != null) {
+            if (serverAddress != null && normalizeHttpsServer(baseUrl) != null) serverAddress.setText(baseUrl);
+            errorView.setVisibility(View.VISIBLE);
+        }
+    }); }
 
     @Override public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grants) {
         super.onRequestPermissionsResult(requestCode, permissions, grants);
