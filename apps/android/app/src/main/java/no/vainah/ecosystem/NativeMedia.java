@@ -14,6 +14,8 @@ import android.graphics.BitmapFactory;
 import android.graphics.Outline;
 import android.graphics.SurfaceTexture;
 import android.media.MediaPlayer;
+import android.media.MediaMetadataRetriever;
+import android.util.LruCache;
 import android.media.MediaRecorder;
 import android.net.Uri;
 import android.os.Build;
@@ -68,6 +70,10 @@ public final class NativeMedia {
     private boolean voiceGroup=false;
     private long startedAt;
     private static final long MAX_FILE=20L * 1024 * 1024;
+    // Small local cache for previews: never persist private attachments to shared storage.
+    private final LruCache<String,Bitmap> thumbnails = new LruCache<String,Bitmap>(8*1024*1024){
+        @Override protected int sizeOf(String key,Bitmap image){return image.getByteCount();}
+    };
 
     public NativeMedia(Activity activity, NativeApi api, Listener listener) {
         this.activity=activity;
@@ -236,6 +242,98 @@ public final class NativeMedia {
             }
             if(chosen.size()>0)toast("Отправка: "+chosen.size()+" файл(ов)");
         }
+    }
+
+
+    /** Small in-chat preview; never use a public or unauthenticated image URL. */
+    public void addInlinePreview(LinearLayout parent,JSONObject attachment,boolean mine){
+        String kind=attachment.optString("kind","");
+        if(!kind.equals("photo") && !kind.equals("video") && !kind.equals("video_note"))return;
+        String attachmentId=attachment.optString("id","");
+        String url=attachment.optString("url","");
+        if(attachmentId.isEmpty() || url.isEmpty())return;
+        int imageSize=(int)((kind.equals("video_note")?188:210)*
+                activity.getResources().getDisplayMetrics().density);
+        LinearLayout align=new LinearLayout(activity);
+        align.setGravity(mine?Gravity.RIGHT:Gravity.LEFT);
+        parent.addView(align,new LinearLayout.LayoutParams(-1,-2));
+        FrameLayout frame=new FrameLayout(activity);
+        LinearLayout.LayoutParams layout=new LinearLayout.LayoutParams(imageSize,imageSize);
+        layout.setMargins(0,3,0,5);
+        align.addView(frame,layout);
+        ImageView photo=new ImageView(activity);
+        photo.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        photo.setBackgroundColor(0xff303942);
+        frame.addView(photo,new FrameLayout.LayoutParams(-1,-1));
+        if(kind.equals("video_note")){
+            photo.setOutlineProvider(new ViewOutlineProvider(){
+                @Override public void getOutline(View v,Outline outline){
+                    outline.setOval(0,0,v.getWidth(),v.getHeight());
+                }
+            });
+            photo.setClipToOutline(true);
+        }else {
+            photo.setOutlineProvider(new ViewOutlineProvider(){
+                @Override public void getOutline(View v,Outline outline){
+                    outline.setRoundRect(0,0,v.getWidth(),v.getHeight(),18*
+                        activity.getResources().getDisplayMetrics().density);
+                }
+            });
+            photo.setClipToOutline(true);
+        }
+        if(!kind.equals("photo")){
+            TextView play=new TextView(activity);
+            play.setText("▶");play.setTextSize(26);
+            play.setTextColor(0xffFFFFFF);play.setGravity(Gravity.CENTER);
+            play.setBackgroundColor(0x44000000);
+            FrameLayout.LayoutParams overlay=new FrameLayout.LayoutParams(
+                    (int)(55*activity.getResources().getDisplayMetrics().density),
+                    (int)(55*activity.getResources().getDisplayMetrics().density),Gravity.CENTER);
+            frame.addView(play,overlay);
+        }
+        frame.setOnClickListener(v->openAttachment(attachment));
+        Bitmap cached=thumbnails.get(attachmentId);
+        if(cached!=null && !cached.isRecycled()){
+            photo.setImageBitmap(cached);return;
+        }
+        api.fetchAttachment(url,(file,error)->{
+            if(error!=null || file==null)return;
+            new Thread(()->{
+                Bitmap bitmap=null;
+                try{
+                    if(kind.equals("photo")){
+                        BitmapFactory.Options opts=new BitmapFactory.Options();
+                        opts.inJustDecodeBounds=true;
+                        BitmapFactory.decodeFile(file.getAbsolutePath(),opts);
+                        opts.inSampleSize=1;
+                        while(opts.outWidth/opts.inSampleSize>600 ||
+                              opts.outHeight/opts.inSampleSize>600)opts.inSampleSize*=2;
+                        opts.inJustDecodeBounds=false;
+                        bitmap=BitmapFactory.decodeFile(file.getAbsolutePath(),opts);
+                    }else{
+                        MediaMetadataRetriever retriever=new MediaMetadataRetriever();
+                        try{
+                            retriever.setDataSource(file.getAbsolutePath());
+                            bitmap=retriever.getFrameAtTime(0,
+                                    MediaMetadataRetriever.OPTION_CLOSEST_SYNC);
+                            if(bitmap!=null && Math.max(bitmap.getWidth(),bitmap.getHeight())>600){
+                                float ratio=600f/Math.max(bitmap.getWidth(),bitmap.getHeight());
+                                bitmap=Bitmap.createScaledBitmap(bitmap,
+                                        Math.max(1,Math.round(bitmap.getWidth()*ratio)),
+                                        Math.max(1,Math.round(bitmap.getHeight()*ratio)),true);
+                            }
+                        }finally{retriever.release();}
+                    }
+                }catch(Exception ignored){}
+                file.delete();
+                Bitmap result=bitmap;
+                if(result!=null)activity.runOnUiThread(()->{
+                    thumbnails.put(attachmentId,result);
+                    // If navigation changed the view is detached; don't change another chat.
+                    if(photo.getParent()!=null)photo.setImageBitmap(result);
+                });
+            },"vainah-thumbnail").start();
+        });
     }
 
     public void openAttachment(JSONObject attachment){
