@@ -1,4 +1,4 @@
-# Vainah Messenger Android 0.9.3 — нативное приложение
+# Vainah Messenger Android — нативное приложение
 
 В Messenger на Android используется **NativeMessengerActivity**, настоящие Android Views и системный Google Credential Manager. Никаких WebView, экранов ввода адреса сайта или HTML-приложения. Отдельный старый `Vainah Ecosystem` APK пока остаётся WebView, потому что его изменение не входило в этот этап.
 
@@ -55,7 +55,7 @@ GitHub → Settings → Secrets and variables → Actions → **Secrets**:
 
 GitHub → Actions → **Build Vainah EXE and APK** → Run workflow. Задание Android сначала компилирует нативный вариант, затем не публикует Android APK, если отсутствуют обязательные публичные переменные или постоянная подпись. Это предохраняет от скачивания APK с нерабочей авторизацией.
 
-Скачайте artifact `Vainah-Android-v0.9.3`, распакуйте ZIP и установите **`Vainah-Messenger-v0.9.3-debug.apk`**. Тестируйте на телефоне, используя реальный HTTPS API. Сайт открывать не требуется.
+Скачайте artifact `Vainah-Android-v0.10.1`, распакуйте ZIP и установите **`Vainah-Messenger-v0.10.1-debug.apk`**. Тестируйте на телефоне, используя реальный HTTPS API. Сайт открывать не требуется.
 
 ## Ограничения текущего MVP
 
