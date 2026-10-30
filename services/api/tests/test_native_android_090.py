@@ -49,7 +49,7 @@ def test_native_messenger_091_groups_and_safe_navigation():
     assert 'if(threadEpoch!=generation)return;' in native
     assert "stickToBottom" in native
     assert 'inDetail' in native
-    assert "versionName '0.9.5'" in gradle
+    assert "versionName '0.9.6'" in gradle
 
 
 def test_native_092_usernames_and_invites():
@@ -76,7 +76,7 @@ def test_native_messenger_094_permanent_numeric_id():
     assert 'ClipData.newPlainText("Vainah ID",number)' in native
     assert '"/api/people/id/"' in native
     gradle = (ANDROID / "build.gradle").read_text(encoding="utf-8")
-    assert "versionName '0.9.5'" in gradle
+    assert "versionName '0.9.6'" in gradle
 
 def test_native_messenger_095_reliability_and_controls():
     native = (SOURCE / "NativeMessengerActivity.java").read_text(encoding="utf-8")
@@ -90,3 +90,16 @@ def test_native_messenger_095_reliability_and_controls():
                    "isOwner?\"Удалить группу\":\"Покинуть группу\""):
         assert marker in native, marker
     assert 'pair.startsWith("vainah_session=")' in network
+
+def test_native_messenger_096_live_and_verified():
+    native=(SOURCE/"NativeMessengerActivity.java").read_text(encoding="utf-8")
+    realtime=(SOURCE/"NativeRealtime.java").read_text(encoding="utf-8")
+    gradle=(ANDROID/"build.gradle").read_text(encoding="utf-8")
+    assert "NativeRealtime" in native
+    assert "live.start(api.liveCookie())" in native
+    assert "liveThreadRefresh.run()" in native
+    assert 'indicator.setText("печатает…")' in native
+    assert "person.optBoolean(\"verified\")" in native
+    assert "wss://" in realtime
+    assert 'header("Cookie", sessionCookie)' in realtime
+    assert "versionName '0.9.6'" in gradle
