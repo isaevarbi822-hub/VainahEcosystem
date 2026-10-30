@@ -55,12 +55,14 @@ public final class NativeMessengerActivity extends Activity {
     private static final int BLUE = Color.rgb(34, 160, 246);
     private static final int LINE = Color.rgb(48, 49, 55);
     private NativeApi api;
+    private NativeMedia media;
     private NativeRealtime live;
     private Runnable liveThreadRefresh;
     private String currentThreadId = "";
     private boolean currentThreadIsGroup = false;
     private TextView currentThreadSubtitle;
     private String threadNormalSubtitle="Личный чат";
+    private Button voiceButton;
     private long lastTypingSentMs = 0;
     private int typingGeneration = 0;
     private boolean isForeground = false;
@@ -160,7 +162,20 @@ public final class NativeMessengerActivity extends Activity {
         String endpoint=BuildConfig.VAINAH_BASE_URL;
         if(endpoint.startsWith("https://") && !endpoint.contains("127.0.0.1") && !endpoint.contains("localhost"))
             api=new NativeApi(this,endpoint);
-        if(api!=null)live=new NativeRealtime(endpoint,this::onLiveEvent);
+        if(api!=null){
+            live=new NativeRealtime(endpoint,this::onLiveEvent);
+            media=new NativeMedia(this,api,new NativeMedia.Listener(){
+                @Override public void onSent(String target,String error){
+                    if(error!=null){notice(error);return;}
+                    notice("Медиафайл отправлен");
+                    if(target.equals(currentThreadId) && liveThreadRefresh!=null)
+                        liveThreadRefresh.run();
+                }
+                @Override public void onRecording(boolean recording){
+                    if(voiceButton!=null)voiceButton.setText(recording?"■":"🎤");
+                }
+            });
+        }
         showLogin();
         if(getIntent()!=null && getIntent().getData()!=null)handleAppleReturn(getIntent());
         if(api!=null && api.hasSession()){
@@ -172,6 +187,7 @@ public final class NativeMessengerActivity extends Activity {
     }
 
     private void showLogin(){
+        if(media!=null){media.cancelRecording();media.clearContact();}
         if(live!=null)live.stop();
         liveThreadRefresh=null;currentThreadId="";currentThreadSubtitle=null;
         inDetail = false;
@@ -309,6 +325,8 @@ public final class NativeMessengerActivity extends Activity {
     }
 
     private void showHome(String target){
+        if(media!=null){media.cancelRecording();media.clearContact();}
+        voiceButton=null;
         liveThreadRefresh=null;currentThreadId="";currentThreadSubtitle=null;
         startLive();
         inDetail = false;
@@ -659,6 +677,10 @@ public final class NativeMessengerActivity extends Activity {
 
     private void openThread(JSONObject contact,boolean group){
         String id=contact.optString("id");
+        if(media!=null){
+            media.cancelRecording();
+            if(group)media.clearContact();else media.setContact(id);
+        }
         String normalSubtitle=group?"Групповая переписка":
                 (contact.optString("username","").isEmpty()?"Личный чат":
                         "@"+contact.optString("username"));
@@ -696,7 +718,21 @@ public final class NativeMessengerActivity extends Activity {
         replyingBanner.setOnClickListener(v->{
             replyingTo[0]="";replyingBanner.setVisibility(View.GONE);
         });
-        LinearLayout composer=row();pad(composer,9,8,9,12);composer.setBackgroundColor(PANEL);root.addView(composer,lp(-1,76));
+        LinearLayout composer=row();pad(composer,7,8,7,12);composer.setBackgroundColor(PANEL);root.addView(composer,lp(-1,76));
+        if(!group){
+            Button attach=button("＋",false);
+            attach.setTextSize(24);
+            composer.addView(attach,lp(41,46));
+            attach.setOnClickListener(v->{
+                String[] options={"Фото и видео","Файлы и документы","Записать видеокружок"};
+                new AlertDialog.Builder(this).setTitle("Прикрепить")
+                    .setItems(options,(dialog,which)->{
+                        if(media==null){notice("Медиа недоступно");return;}
+                        if(which==2)media.captureRoundVideo();
+                        else media.pickFile();
+                    }).setNegativeButton("Отмена",null).show();
+            });
+        }
         EditText input=field("Сообщение",false);input.setSingleLine(false);input.setMaxLines(3);
         if(!group)input.addTextChangedListener(new TextWatcher(){
             public void beforeTextChanged(CharSequence text,int start,int count,int after){}
@@ -710,7 +746,25 @@ public final class NativeMessengerActivity extends Activity {
             public void afterTextChanged(Editable text){}
         });
         composer.addView(input,new LinearLayout.LayoutParams(0,dp(48),1));
-        Button send=button("➤",true);send.setTextSize(22);LinearLayout.LayoutParams sp=lp(53,48);sp.leftMargin=dp(9);
+        if(!group){
+            voiceButton=button("🎤",false);
+            voiceButton.setTextSize(18);
+            composer.addView(voiceButton,lp(42,48));
+            voiceButton.setOnClickListener(v->{
+                if(media!=null)media.toggleVoice();
+            });
+            voiceButton.setOnLongClickListener(v->{
+                if(media!=null)media.cancelRecording();
+                notice("Запись отменена");return true;
+            });
+            Button roundVideo=button("◉",false);
+            roundVideo.setTextSize(22);
+            composer.addView(roundVideo,lp(40,48));
+            roundVideo.setOnClickListener(v->{
+                if(media!=null)media.captureRoundVideo();
+            });
+        }else voiceButton=null;
+        Button send=button("➤",true);send.setTextSize(22);LinearLayout.LayoutParams sp=lp(43,48);sp.leftMargin=dp(4);
         composer.addView(send,sp);
         final int threadEpoch=generation;
         currentThreadId=id;
@@ -745,8 +799,12 @@ public final class NativeMessengerActivity extends Activity {
                     String content=message.optString("body","");
                     JSONObject attachment=message.optJSONObject("attachment");
                     if(attachment!=null && !message.optBoolean("deleted")){
-                        content="📎 "+attachment.optString("filename","Вложение")+
-                                " · "+(attachment.optLong("size")/1024)+" КБ";
+                        String mediaKind=attachment.optString("kind","file");
+                        String symbol=mediaKind.equals("voice")?"🎤":mediaKind.equals("video_note")?"◉":
+                                mediaKind.equals("photo")?"🖼":mediaKind.equals("video")?"▶":"📎";
+                        content=symbol+" "+attachment.optString("filename","Медиафайл")+
+                                " · "+(attachment.optLong("size")/1024)+" КБ"+
+                                "\nНажмите для просмотра";
                     }
                     if(group && !message.optBoolean("mine") && !message.optBoolean("deleted"))
                         content=message.optString("sender","Участник")+":\n"+content;
@@ -773,6 +831,12 @@ public final class NativeMessengerActivity extends Activity {
                         messages.addView(summary,lp(-1,28));
                         summary.setOnClickListener(v->{
                             if(!group)showMessageActions(message,false,input,replyingTo,replyingBanner,liveThreadRefresh);
+                        });
+                    }
+                    if(attachment!=null && !message.optBoolean("deleted")){
+                        JSONObject fileAttachment=attachment;
+                        bubble.setOnClickListener(v->{
+                            if(media!=null)media.openAttachment(fileAttachment);
                         });
                     }
                     bubble.setOnLongClickListener(v->{
@@ -1405,6 +1469,16 @@ public final class NativeMessengerActivity extends Activity {
         JSONObject value=json("user_id",target);try{value.put("verified",approved);}catch(Exception ignored){}
         request("POST","/api/messenger/v2/verification/manage",value,(d,e)->notice(e!=null?e:"Статус обновлён"));
     }
+    @Override protected void onActivityResult(int requestCode,int resultCode,Intent intent){
+        super.onActivityResult(requestCode,resultCode,intent);
+        if(media!=null)media.activityResult(requestCode,resultCode,intent);
+    }
+
+    @Override public void onRequestPermissionsResult(int requestCode,String[] permissions,int[] grants){
+        super.onRequestPermissionsResult(requestCode,permissions,grants);
+        if(media!=null)media.permissionResult(requestCode,grants);
+    }
+
     @Override public void onBackPressed(){
         if(!user.optString("id","").isEmpty() && inDetail){showHome(tab);return;}
         super.onBackPressed();
@@ -1451,6 +1525,7 @@ public final class NativeMessengerActivity extends Activity {
 
     @Override protected void onStop(){
         isForeground=false;
+        if(media!=null)media.cancelRecording();
         if(live!=null)live.stop();
         super.onStop();
     }
@@ -1458,6 +1533,7 @@ public final class NativeMessengerActivity extends Activity {
     @Override protected void onDestroy(){
         generation++;
         handler.removeCallbacksAndMessages(null);
+        if(media!=null)media.close();
         if(live!=null)live.close();
         if(api!=null)api.close();
         super.onDestroy();
