@@ -28,6 +28,7 @@ def my_badge(user: User = Depends(current_user), db: Session = Depends(get_db)):
     if is_owner and db.get(VerifiedAccount, user.id) is None:
         db.add(VerifiedAccount(user_id=user.id, verified_by=user.id))
         db.commit()
+        db.expire_all()
     return {"verified": is_owner or db.get(VerifiedAccount, user.id) is not None,
             "can_manage": is_owner}
 
