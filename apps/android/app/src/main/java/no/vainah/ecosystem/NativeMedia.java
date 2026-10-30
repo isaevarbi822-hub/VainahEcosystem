@@ -92,6 +92,32 @@ public final class NativeMedia {
         contactId=target==null?"":target;groupChat=group;
     }
     public void clearContact(){contactId="";groupChat=false;}
+    private String pendingKey(File file){return "pending_"+file.getName();}
+
+    private void rememberPending(File file,String target,boolean group,String uploadId){
+        try{
+            JSONObject metadata=new JSONObject();
+            metadata.put("target",target);
+            metadata.put("group",group);
+            metadata.put("upload_id",uploadId);
+            activity.getSharedPreferences("vainah-pending-media",Activity.MODE_PRIVATE)
+                    .edit().putString(pendingKey(file),metadata.toString()).apply();
+        }catch(Exception ignored){}
+    }
+
+    private JSONObject pendingInfo(File file){
+        try{
+            String saved=activity.getSharedPreferences("vainah-pending-media",Activity.MODE_PRIVATE)
+                    .getString(pendingKey(file),"");
+            return saved.isEmpty()?null:new JSONObject(saved);
+        }catch(Exception ignored){return null;}
+    }
+
+    private void forgetPending(File file){
+        activity.getSharedPreferences("vainah-pending-media",Activity.MODE_PRIVATE)
+                .edit().remove(pendingKey(file)).apply();
+    }
+
 
     private void toast(String message){
         Toast.makeText(activity,message,Toast.LENGTH_LONG).show();
@@ -121,6 +147,12 @@ public final class NativeMedia {
         new AlertDialog.Builder(activity).setTitle("Сохранённые записи")
                 .setItems(labels,(dialog,index)->{
                     File selected=pending.get(index);
+                    JSONObject metadata=pendingInfo(selected);
+                    if(metadata!=null && (!contactId.equals(metadata.optString("target")) ||
+                            groupChat!=metadata.optBoolean("group"))){
+                        toast("Откройте исходный чат для отправки этой записи");
+                        return;
+                    }
                     new AlertDialog.Builder(activity)
                             .setTitle("Сохранённая запись")
                             .setMessage("Отправить файл в открытый чат? Проверьте, не был ли он отправлен раньше.")
@@ -128,10 +160,14 @@ public final class NativeMedia {
                                 String mime=selected.getName().endsWith(".m4a")?"audio/mp4":"video/mp4";
                                 Uri uri=FileProvider.getUriForFile(activity,
                                         activity.getPackageName()+".media",selected);
-                                sendUri(contactId,groupChat,uri,selected.getName(),mime,selected);
+                                if(metadata!=null && !metadata.optString("upload_id").isEmpty())
+                                    sendUriWithId(contactId,groupChat,uri,selected.getName(),mime,selected,
+                                            metadata.optString("upload_id"));
+                                else sendUri(contactId,groupChat,uri,selected.getName(),mime,selected);
                             })
                             .setNegativeButton("Удалить",(d,w)->{
                                 if(!selected.delete())toast("Не удалось удалить запись");
+                                else forgetPending(selected);
                             })
                             .setNeutralButton("Отмена",null).show();
                 }).setNegativeButton("Закрыть",null).show();
@@ -260,9 +296,10 @@ public final class NativeMedia {
     private void sendUriWithId(String target,boolean group,Uri uri,String filename,String mime,
                                File temp,String uploadId){
         if(target==null || target.isEmpty()){if(temp!=null)temp.delete();return;}
+        if(temp!=null)rememberPending(temp,target,group,uploadId);
         api.uploadAttachment(target,group,uri,filename,mime,uploadId,(response,error)->{
             if(error==null){
-                if(temp!=null)temp.delete();
+                if(temp!=null){forgetPending(temp);temp.delete();}
                 listener.onSent(target,null);
             }else{
                 // A failed upload must not silently discard the original recording.
@@ -276,7 +313,9 @@ public final class NativeMedia {
                                     sendUriWithId(target,group,uri,filename,mime,temp,uploadId))
                             .setNeutralButton("Закрыть",(dialog,which)->
                                     toast("Запись осталась в приватном хранилище, но автоматическое восстановление ещё не реализовано"))
-                            .setNegativeButton("Удалить",(dialog,which)->temp.delete())
+                            .setNegativeButton("Удалить",(dialog,which)->{
+                                if(temp.delete())forgetPending(temp);
+                            })
                             .show();
                 }
             }
