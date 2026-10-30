@@ -251,11 +251,16 @@ public final class NativeApi {
                     }
                 }
                 if(status==401){clear();error="Сессия завершена. Войдите снова.";}
-                else if(status<200 || status>=300)
+                else if(status<200 || status>=300) {
                     error=result.optString("detail","Сервер отклонил вложение: "+status);
+                    if(status==413)error="Файл слишком большой для сервера (максимум 20 МБ).";
+                    else if(status==415)error="Этот формат файла не поддерживается сервером.";
+                    else if(status==429)error="Слишком много отправок. Повторите немного позже.";
+                    else if(status>=500)error="Ошибка сервера ("+status+"). Проверьте чат перед повторной отправкой.";
+                }
             }catch(Exception ex){
                 error=ex instanceof IllegalArgumentException?ex.getMessage():
-                    "Не удалось отправить файл. Проверьте соединение и размер.";
+                    "Не удалось подтвердить отправку. Проверьте чат перед повторной попыткой, чтобы избежать дубликата.";
             }finally{if(conn!=null)conn.disconnect();}
             JSONObject response=result;String failure=error;
             activity.runOnUiThread(()->callback.complete(response,failure));
