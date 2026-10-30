@@ -16,25 +16,39 @@ class VerificationAction(BaseModel):
     user_id: str
     verified: bool = True
 
+def owner_id() -> str:
+    """One immutable internal user ID; never a username or client-supplied role."""
+    return os.getenv("VAINAH_OWNER_USER_ID", "").strip()
+
+
 @router.get("/me")
 def my_badge(user: User = Depends(current_user), db: Session = Depends(get_db)):
-    return {"verified": db.get(VerifiedAccount, user.id) is not None,
-            "can_manage": user.id in {s.strip() for s in os.getenv("VAINAH_VERIFICATION_ADMIN_IDS", "").split(",") if s.strip()}}
+    owner = owner_id()
+    is_owner = bool(owner) and user.id == owner
+    if is_owner and db.get(VerifiedAccount, user.id) is None:
+        db.add(VerifiedAccount(user_id=user.id, verified_by=user.id))
+        db.commit()
+    return {"verified": is_owner or db.get(VerifiedAccount, user.id) is not None,
+            "can_manage": is_owner}
+
 
 @router.post("/manage", dependencies=[Depends(csrf_protect)])
 def manage_badge(data: VerificationAction, request: Request,
                  user: User = Depends(current_user), db: Session = Depends(get_db)):
     enforce_origin(request)
-    admins = {s.strip() for s in os.getenv("VAINAH_VERIFICATION_ADMIN_IDS", "").split(",") if s.strip()}
-    if user.id not in admins:
-        raise HTTPException(403, "Только администратор Vainah может управлять галочками")
-    identifier=data.user_id.strip()
-    target=db.get(User,identifier)
+    owner = owner_id()
+    if not owner or user.id != owner:
+        raise HTTPException(403, "Только владелец Vainah может управлять галочками")
+    identifier = data.user_id.strip()
+    target = db.get(User, identifier)
     if target is None and identifier.isascii() and identifier.isdigit():
-        target=find_user_by_public_id(db,identifier)
+        target = find_user_by_public_id(db, identifier)
     if target is None and identifier.startswith("@"):
-        target=find_by_username(db,identifier)
-    if target is None: raise HTTPException(404, "Аккаунт не найден")
+        target = find_by_username(db, identifier)
+    if target is None:
+        raise HTTPException(404, "Аккаунт не найден")
+    if target.id == owner and not data.verified:
+        raise HTTPException(409, "Нельзя снять галочку с аккаунта владельца")
     previous = db.get(VerifiedAccount, target.id)
     if data.verified and previous is None:
         db.add(VerifiedAccount(user_id=target.id, verified_by=user.id))
