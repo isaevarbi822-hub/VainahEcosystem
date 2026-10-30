@@ -227,8 +227,8 @@ public final class NativeMedia {
                             .setMessage("Запись сохранена временно. Повторить отправку?")
                             .setPositiveButton("Повторить",(dialog,which)->
                                     sendUriWithId(target,group,uri,filename,mime,temp,uploadId))
-                            .setNeutralButton("Оставить",(dialog,which)->
-                                    toast("Запись оставлена во временном хранилище приложения"))
+                            .setNeutralButton("Закрыть",(dialog,which)->
+                                    toast("Запись может исчезнуть после закрытия приложения"))
                             .setNegativeButton("Удалить",(dialog,which)->temp.delete())
                             .show();
                 }
