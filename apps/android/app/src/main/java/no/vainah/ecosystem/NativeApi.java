@@ -37,8 +37,8 @@ public final class NativeApi {
     private final Activity activity;
     private final String origin;
     private final ExecutorService queue = Executors.newSingleThreadExecutor();
-    private String cookie = "";
-    private String csrf = "";
+    private volatile String cookie = "";
+    private volatile String csrf = "";
     private static final String KEY_ALIAS = "vainah-native-session-v1";
 
     public NativeApi(Activity activity, String origin) {
@@ -51,6 +51,7 @@ public final class NativeApi {
     public String baseUrl() { return origin; }
 
     public boolean hasSession() { return !cookie.isEmpty(); }
+    public String liveCookie() { return cookie; }
 
     private SecretKey secretKey() throws Exception {
         KeyStore store = KeyStore.getInstance("AndroidKeyStore");
