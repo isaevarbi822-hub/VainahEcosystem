@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 from .database import get_db
 from .models import MessengerGroup, MessengerGroupMember, MessengerGroupMessage, User
 from .messenger import block_exists, validate_send_rate, inform
+from .handles import find_by_username
 from .security import current_user, csrf_protect, enforce_origin
 
 router = APIRouter(prefix="/api/messenger/v2/groups", tags=["Messenger groups"])
@@ -23,6 +24,7 @@ MAX_MEMBERS = 25
 class GroupCreate(BaseModel):
     name: str = Field(min_length=2, max_length=80)
     emails: list[str] = Field(default_factory=list, max_length=24)
+    usernames: list[str] = Field(default_factory=list, max_length=24)
 
 
 class GroupSend(BaseModel):
@@ -30,7 +32,8 @@ class GroupSend(BaseModel):
 
 
 class GroupInvite(BaseModel):
-    email: str = Field(min_length=5, max_length=254)
+    email: str | None = Field(default=None, min_length=5, max_length=254)
+    username: str | None = Field(default=None, min_length=3, max_length=33)
 
 
 def membership(db: Session, group_id: str, user_id: str):
@@ -79,14 +82,23 @@ def create_group(data: GroupCreate, request: Request,
         raise HTTPException(409, "Достигнут лимит групп")
     emails = {mail.strip().lower() for mail in data.emails if mail.strip()}
     emails.discard(user.email.lower())
-    peers = []
+    peers_by_id = {}
     for mail in emails:
         peer = db.scalar(select(User).where(User.email == mail))
         if not peer:
             raise HTTPException(404, "Один из указанных аккаунтов не найден")
+        peers_by_id[peer.id] = peer
+    for handle in data.usernames:
+        peer = find_by_username(db, handle)
+        if not peer:
+            raise HTTPException(404, "Один из @username не найден")
+        if peer.id != user.id: peers_by_id[peer.id] = peer
+    if len(peers_by_id) > 24:
+        raise HTTPException(422, "В группе может быть до 25 участников")
+    peers = list(peers_by_id.values())
+    for peer in peers:
         if block_exists(db, user.id, peer.id) or block_exists(db, peer.id, user.id):
             raise HTTPException(403, "Нельзя пригласить заблокированный контакт")
-        peers.append(peer)
     group = MessengerGroup(name=name, owner_id=user.id)
     db.add(group)
     db.flush()
@@ -162,7 +174,10 @@ def invite(group_id: str, data: GroupInvite, request: Request,
         MessengerGroupMember.group_id == group_id)) or 0
     if count >= MAX_MEMBERS:
         raise HTTPException(409, "В группе может быть до 25 участников")
-    person = db.scalar(select(User).where(User.email == data.email.strip().lower()))
+    if bool(data.email) == bool(data.username):
+        raise HTTPException(422, "Укажите email или @username")
+    person = (find_by_username(db, data.username) if data.username else
+              db.scalar(select(User).where(User.email == data.email.strip().lower())))
     if not person:
         raise HTTPException(404, "Аккаунт не найден")
     if block_exists(db, user.id, person.id) or block_exists(db, person.id, user.id):
