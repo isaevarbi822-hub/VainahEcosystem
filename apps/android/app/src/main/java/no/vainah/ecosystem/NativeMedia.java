@@ -97,6 +97,46 @@ public final class NativeMedia {
         Toast.makeText(activity,message,Toast.LENGTH_LONG).show();
     }
 
+    /** Show recordings surviving an app restart. Resend is explicit and only
+     * targets the currently open conversation, never a guessed recipient. */
+    public void showPendingRecordings(){
+        if(contactId.isEmpty()){toast("Сначала откройте нужный чат");return;}
+        File[] all=pendingMediaDirectory().listFiles();
+        java.util.ArrayList<File> pending=new java.util.ArrayList<>();
+        if(all!=null)for(File file:all){
+            if(file.isFile() && file.length()>0 &&
+                    (file.getName().endsWith(".m4a") || file.getName().endsWith(".mp4")))
+                pending.add(file);
+        }
+        if(pending.isEmpty()){toast("Сохранённых записей нет");return;}
+        pending.sort((a,b)->Long.compare(b.lastModified(),a.lastModified()));
+        String[] labels=new String[pending.size()];
+        for(int i=0;i<pending.size();i++){
+            File file=pending.get(i);
+            labels[i]=(file.getName().endsWith(".m4a")?"Голосовое":"Видео")
+                    +" · "+(file.length()/1024)+" КБ · "
+                    +new java.text.SimpleDateFormat("dd.MM HH:mm",java.util.Locale.getDefault())
+                        .format(new java.util.Date(file.lastModified()));
+        }
+        new AlertDialog.Builder(activity).setTitle("Сохранённые записи")
+                .setItems(labels,(dialog,index)->{
+                    File selected=pending.get(index);
+                    new AlertDialog.Builder(activity)
+                            .setTitle("Сохранённая запись")
+                            .setMessage("Отправить файл в открытый чат? Проверьте, не был ли он отправлен раньше.")
+                            .setPositiveButton("Отправить",(d,w)->{
+                                String mime=selected.getName().endsWith(".m4a")?"audio/mp4":"video/mp4";
+                                Uri uri=FileProvider.getUriForFile(activity,
+                                        activity.getPackageName()+".media",selected);
+                                sendUri(contactId,groupChat,uri,selected.getName(),mime,selected);
+                            })
+                            .setNegativeButton("Удалить",(d,w)->{
+                                if(!selected.delete())toast("Не удалось удалить запись");
+                            })
+                            .setNeutralButton("Отмена",null).show();
+                }).setNegativeButton("Закрыть",null).show();
+    }
+
     public void pickFile(){
         if(contactId.isEmpty()){toast("Откройте переписку");return;}
         Intent picker=new Intent(Intent.ACTION_OPEN_DOCUMENT);
