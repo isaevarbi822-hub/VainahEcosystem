@@ -26,6 +26,22 @@ from .suite import detected_type
 
 router = APIRouter(prefix="/api/messenger/v2", tags=["Vainah Messenger"])
 
+
+@router.get("/security-status")
+def security_status(user: User = Depends(current_user)):
+    """Current server settings, never revealing key material.
+
+    This says only whether NEW message bodies will be encrypted at rest.
+    It does not prove that older data was migrated and is not E2EE.
+    """
+    from .message_crypto import key_bytes
+    enabled = key_bytes() is not None
+    return {"message_body_encryption_at_rest": enabled,
+            "algorithm": "AES-256-GCM" if enabled else None,
+            "end_to_end_encryption": False,
+            "older_messages_may_be_plaintext": True}
+
+
 def inform(request: Request, users: list[str], event: str, **kwargs) -> None:
     hub = getattr(request.app.state, "live_hub", None)
     if hub:
