@@ -37,13 +37,13 @@ import java.util.Locale;
  * components are Android Views; message synchronization uses Vainah API.
  */
 public final class NativeMessengerActivity extends Activity {
-    private static final int BG = Color.rgb(9, 16, 30);
-    private static final int PANEL = Color.rgb(18, 29, 49);
-    private static final int PANEL2 = Color.rgb(27, 40, 62);
-    private static final int TEXT = Color.rgb(245, 248, 255);
-    private static final int MUTED = Color.rgb(152, 172, 201);
-    private static final int BLUE = Color.rgb(34, 133, 248);
-    private static final int LINE = Color.rgb(39, 52, 73);
+    private static final int BG = Color.rgb(13, 14, 17);
+    private static final int PANEL = Color.rgb(29, 30, 34);
+    private static final int PANEL2 = Color.rgb(39, 40, 44);
+    private static final int TEXT = Color.rgb(249, 250, 252);
+    private static final int MUTED = Color.rgb(146, 148, 155);
+    private static final int BLUE = Color.rgb(34, 160, 246);
+    private static final int LINE = Color.rgb(48, 49, 55);
     private NativeApi api;
     private LinearLayout root;
     private LinearLayout list;
@@ -53,7 +53,7 @@ public final class NativeMessengerActivity extends Activity {
             channels = new JSONArray(), bots = new JSONArray();
     private JSONObject user = new JSONObject();
     private boolean verified = false, canManage = false;
-    private String tab = "chats", query = "";
+    private String tab = "chats", query = "", chatFilter = "all";
     private boolean inDetail = false;
     private int generation = 0;
     private Runnable pendingPeopleSearch;
@@ -220,8 +220,9 @@ public final class NativeMessengerActivity extends Activity {
         inDetail = false;
         tab=target;int epoch=++generation;reset();
         LinearLayout top=row();pad(top,20,15,13,8);root.addView(top,lp(-1,75));
-        TextView heading=text(target.equals("chats")?"Vainah":target.equals("channels")?"Каналы":target.equals("bots")?"Боты":"Настройки",
-                30,TEXT,true);
+        TextView heading=text(target.equals("chats")?"Vainah":target.equals("contacts")?"Контакты":
+                target.equals("profile")?"Профиль":target.equals("channels")?"Каналы":
+                target.equals("bots")?"Боты":"Настройки",28,TEXT,true);
         top.addView(heading,new LinearLayout.LayoutParams(0,-1,1));
         if(target.equals("chats")){
             Button fresh=button("⌕",false);fresh.setTextSize(24);fresh.setBackground(shape(BG,12));
@@ -239,7 +240,7 @@ public final class NativeMessengerActivity extends Activity {
         LinearLayout container=column();scroll.addView(container);
         list=container;
         if(target.equals("chats")){
-            search=field("Поиск чатов, контактов и каналов",false);
+            search=field("⌕  Поиск чатов и @username",false);
             search.setSingleLine(true);pad(search,18,7,18,7);
             LinearLayout.LayoutParams input=lp(-1,49);input.setMargins(dp(16),dp(4),dp(16),dp(8));
             container.addView(search,input);
@@ -251,6 +252,19 @@ public final class NativeMessengerActivity extends Activity {
                 }
                 public void afterTextChanged(Editable e){}
             });
+            LinearLayout categories=row();pad(categories,5,4,5,4);
+            categories.setBackground(shape(PANEL,23));
+            LinearLayout.LayoutParams tabsParams=lp(-1,49);
+            tabsParams.setMargins(dp(15),0,dp(15),dp(12));
+            container.addView(categories,tabsParams);
+            for(String[] option:new String[][]{{"Все","all"},{"Личные","direct"},{"Группы","group"},{"Каналы","channel"},{"Боты","bot"}}){
+                String label=option[0],value=option[1];
+                TextView chip=text(label,12,chatFilter.equals(value)?TEXT:MUTED,chatFilter.equals(value));
+                chip.setGravity(Gravity.CENTER);
+                if(chatFilter.equals(value))chip.setBackground(shape(0xff293d4b,18));
+                categories.addView(chip,new LinearLayout.LayoutParams(0,-1,1));
+                chip.setOnClickListener(v->{chatFilter=value;showHome("chats");});
+            }
             LinearLayout results=column();results.setTag("chatResults");container.addView(results,lp(-1,-2));
             Button floating=button("✎",true);floating.setTextSize(26);
             FrameLayout.LayoutParams floatParams=new FrameLayout.LayoutParams(dp(58),dp(58),Gravity.RIGHT|Gravity.BOTTOM);
@@ -264,20 +278,25 @@ public final class NativeMessengerActivity extends Activity {
                     handler.postDelayed(this,15000);
                 }
             },15000);
-        }else if(target.equals("channels"))loadChannels(epoch);
+        }else if(target.equals("contacts"))loadContacts(epoch);
+        else if(target.equals("channels"))loadChannels(epoch);
         else if(target.equals("bots"))loadBots(epoch);
-        else loadProfile(epoch);
-        LinearLayout nav=row();pad(nav,7,4,7,5);nav.setBackground(border(PANEL,18));
-        root.addView(nav,lp(-1,66));
+        else if(target.equals("profile"))loadProfile(epoch);
+        else loadSettings(epoch);
+        LinearLayout nav=row();pad(nav,7,3,7,5);nav.setBackground(border(PANEL,25));
+        LinearLayout.LayoutParams navSpace=lp(-1,68);
+        navSpace.setMargins(dp(10),dp(4),dp(10),dp(9));
+        root.addView(nav,navSpace);
         bottom(nav,"☏","Чаты","chats");
-        bottom(nav,"◉","Каналы","channels");
-        bottom(nav,"✦","Боты","bots");
+        bottom(nav,"◎","Контакты","contacts");
         bottom(nav,"⚙","Настройки","settings");
+        bottom(nav,"●","Профиль","profile");
     }
 
     private void bottom(LinearLayout bar,String glyph,String label,String destination) {
         LinearLayout cell=column();cell.setGravity(Gravity.CENTER);
-        TextView icon=text(glyph,22,tab.equals(destination)?BLUE:MUTED,true);icon.setGravity(Gravity.CENTER);
+        if(tab.equals(destination))cell.setBackground(shape(0xff263846,23));
+        TextView icon=text(glyph,23,tab.equals(destination)?BLUE:MUTED,true);icon.setGravity(Gravity.CENTER);
         TextView title=text(label,11,tab.equals(destination)?BLUE:MUTED,tab.equals(destination));
         title.setGravity(Gravity.CENTER);cell.addView(icon,lp(-1,28));cell.addView(title,lp(-1,21));
         bar.addView(cell,new LinearLayout.LayoutParams(0,-1,1));
@@ -327,7 +346,7 @@ public final class NativeMessengerActivity extends Activity {
         if(results==null)return;results.removeAllViews();
         int count=0;String match=query.trim().toLowerCase(Locale.ROOT);
         for(int i=0;i<chats.length();i++){
-            JSONObject c=chats.optJSONObject(i);if(c==null||c.optBoolean("archived"))continue;
+            JSONObject c=chats.optJSONObject(i);if(c==null||c.optBoolean("archived")||(!chatFilter.equals("all")&&!chatFilter.equals("direct")))continue;
             if(!name(c).toLowerCase(Locale.ROOT).contains(match) &&
                !c.optString("username").toLowerCase(Locale.ROOT).contains(match) &&
                !c.optString("email").toLowerCase(Locale.ROOT).contains(match))continue;
@@ -339,7 +358,7 @@ public final class NativeMessengerActivity extends Activity {
                     ()->openThread(chosen,false));
         }
         for(int i=0;i<groups.length();i++){
-            JSONObject c=groups.optJSONObject(i);if(c==null)continue;
+            JSONObject c=groups.optJSONObject(i);if(c==null||(!chatFilter.equals("all")&&!chatFilter.equals("group")))continue;
             if(!name(c).toLowerCase(Locale.ROOT).contains(match))continue;
             count++;final JSONObject chosen=c;
             addConversation(results,name(c),c.optString("preview",c.optInt("members")+" участников"),
@@ -347,21 +366,21 @@ public final class NativeMessengerActivity extends Activity {
                     ()->openThread(chosen,true));
         }
         for(int i=0;i<channels.length();i++){
-            JSONObject c=channels.optJSONObject(i);if(c==null||(!c.optBoolean("subscribed")&&!c.optBoolean("owner")))continue;
+            JSONObject c=channels.optJSONObject(i);if(c==null||(!c.optBoolean("subscribed")&&!c.optBoolean("owner"))||(!chatFilter.equals("all")&&!chatFilter.equals("channel")))continue;
             if(!name(c).toLowerCase(Locale.ROOT).contains(match))continue;
             count++;final JSONObject chosen=c;
             addConversation(results,name(c),c.optString("description","Канал Vainah"),0,"",
                     c.optBoolean("verified"),"channel",()->openChannel(chosen));
         }
         for(int i=0;i<bots.length();i++){
-            JSONObject c=bots.optJSONObject(i);if(c==null)continue;
+            JSONObject c=bots.optJSONObject(i);if(c==null||(!chatFilter.equals("all")&&!chatFilter.equals("bot")))continue;
             if(!name(c).toLowerCase(Locale.ROOT).contains(match))continue;
             count++;final JSONObject chosen=c;
             addConversation(results,name(c),c.optString("description","Бот Vainah"),0,"",false,"bot",
                     ()->openBot(chosen));
         }
         if(count==0 && match.isEmpty()){
-            TextView empty=text("Пока нет переписок. Нажмите ✎, чтобы найти пользователя по @username.",14,MUTED,false);
+            TextView empty=text(chatFilter.equals("all")?"Пока нет переписок. Нажмите ✎, чтобы найти человека по @username.":"В этом разделе пока нет переписок.",14,MUTED,false);
             empty.setGravity(Gravity.CENTER);pad(empty,25,76,25,25);results.addView(empty);
         }
         if(pendingPeopleSearch!=null)handler.removeCallbacks(pendingPeopleSearch);
@@ -759,12 +778,121 @@ public final class NativeMessengerActivity extends Activity {
                 }).setNegativeButton("Отмена",null).show();
     }
 
+    private void sectionLink(LinearLayout parent,String glyph,String title,String subtitle,Runnable action){
+        LinearLayout item=row();pad(item,13,11,13,11);
+        TextView icon=text(glyph,24,BLUE,true);icon.setGravity(Gravity.CENTER);
+        icon.setBackground(shape(0xff263b49,13));item.addView(icon,lp(49,49));
+        LinearLayout detail=column();pad(detail,14,0,0,0);
+        detail.addView(text(title,17,TEXT,true));space(detail,3);
+        detail.addView(text(subtitle,12,MUTED,false));
+        item.addView(detail,new LinearLayout.LayoutParams(0,-2,1));
+        TextView arrow=text("›",29,MUTED,false);item.addView(arrow);
+        parent.addView(item,lp(-1,75));item.setOnClickListener(v->action.run());
+    }
+
+    private void loadSettings(int epoch){
+        list.removeAllViews();pad(list,17,8,17,27);
+        LinearLayout shortcuts=column();shortcuts.setBackground(shape(PANEL,24));
+        list.addView(shortcuts,lp(-1,-2));
+        sectionLink(shortcuts,"◉","Каналы","Мои каналы и подписки",()->showHome("channels"));
+        sectionLink(shortcuts,"✦","Боты","Автоматические помощники",()->showHome("bots"));
+        sectionLink(shortcuts,"◎","Контакты","Поиск людей по @username",()->showHome("contacts"));
+        space(list,22);
+        LinearLayout account=column();account.setBackground(shape(PANEL,24));
+        list.addView(account,lp(-1,-2));
+        sectionLink(account,"●","Аккаунт","Имя, @username и Vainah ID",()->showHome("profile"));
+        sectionLink(account,"♧","Конфиденциальность","Сеансы и безопасность переписки",()->{
+            new AlertDialog.Builder(this).setTitle("Конфиденциальность")
+                .setMessage("Сессия хранится в зашифрованном хранилище Android. Сообщения синхронизируются с сервером Vainah. Сквозного шифрования пока нет.")
+                .setPositiveButton("Понятно",null).show();
+        });
+        sectionLink(account,"◷","Уведомления","Push-уведомления ещё в разработке",()->{
+            new AlertDialog.Builder(this).setTitle("Уведомления")
+                .setMessage("В этой тестовой версии системные push-уведомления пока не подключены.")
+                .setPositiveButton("Понятно",null).show();
+        });
+        space(list,18);
+        list.addView(text("VAINAH MESSENGER  ·  0.9.3",12,MUTED,false));
+    }
+
+    private void loadContacts(int epoch){
+        list.removeAllViews();pad(list,15,7,15,22);
+        EditText input=field("⌕  Найти по @username",false);
+        list.addView(input,lp(-1,52));space(list,13);
+        LinearLayout results=column();results.setBackground(shape(PANEL,24));
+        list.addView(results,lp(-1,-2));
+        TextView hint=text("Введите минимум 3 символа ника, чтобы найти пользователя.",14,MUTED,false);
+        pad(hint,17,28,17,29);results.addView(hint);
+        input.addTextChangedListener(new TextWatcher(){
+            public void beforeTextChanged(CharSequence value,int start,int count,int after){}
+            public void onTextChanged(CharSequence value,int start,int before,int count){
+                String term=value.toString().trim().toLowerCase(Locale.ROOT).replaceFirst("^@","");
+                results.removeAllViews();
+                if(pendingPeopleSearch!=null)handler.removeCallbacks(pendingPeopleSearch);
+                if(term.length()<3){TextView empty=text("Начните вводить @username",14,MUTED,false);
+                    pad(empty,17,25,17,25);results.addView(empty);return;}
+                if(!term.matches("[a-z0-9_]{3,32}"))return;
+                pendingPeopleSearch=()->request("GET","/api/people/search?q="+android.net.Uri.encode(term),null,(data,error)->{
+                    if(epoch!=generation||!input.getText().toString().trim().replaceFirst("^@","").equalsIgnoreCase(term))return;
+                    results.removeAllViews();
+                    if(error!=null){loadContactsError(results,error);return;}
+                    JSONArray matches=data.optJSONArray("items");
+                    if(matches==null||matches.length()==0){
+                        loadContactsError(results,"Никто не найден. Проверьте написание ника.");return;
+                    }
+                    for(int i=0;i<matches.length();i++){
+                        JSONObject person=matches.optJSONObject(i);if(person==null)continue;
+                        addConversation(results,name(person),"@"+person.optString("username"),0,"",false,"direct",
+                            ()->openThread(person,false));
+                    }
+                });
+                handler.postDelayed(pendingPeopleSearch,350);
+            }
+            public void afterTextChanged(Editable value){}
+        });
+        space(list,18);
+        Button newChat=button("＋  Новое сообщение",true);
+        list.addView(newChat,lp(-1,51));
+        newChat.setOnClickListener(v->newChat());
+    }
+
+    private void loadContactsError(LinearLayout container,String message){
+        TextView empty=text(message,14,MUTED,false);pad(empty,18,22,18,23);
+        container.addView(empty);
+    }
+
     private void loadProfile(int epoch){
-        list.removeAllViews();pad(list,20,18,20,20);
-        list.addView(text(name(user),25,TEXT,true));space(list,7);
-        list.addView(text(user.optString("email","Vainah ID"),14,MUTED,false));space(list,15);
+        list.removeAllViews();pad(list,20,18,20,28);
+        LinearLayout hero=column();hero.setGravity(Gravity.CENTER);
+        TextView face=avatar(name(user),"direct");face.setTextSize(49);
+        hero.addView(face,lp(114,114));space(hero,19);
+        TextView display=text(name(user),28,TEXT,true);display.setGravity(Gravity.CENTER);
+        hero.addView(display,lp(-1,43));space(hero,7);
+        TextView emailLine=text(user.optString("email","Vainah ID"),14,MUTED,false);
+        emailLine.setGravity(Gravity.CENTER);hero.addView(emailLine,lp(-1,27));space(hero,19);
+        list.addView(hero,lp(-1,-2));
+        Button editName=button("✎  Изменить имя",false);
+        list.addView(editName,lp(-1,51));space(list,20);
+        editName.setOnClickListener(v->{
+            EditText input=field("Имя в Vainah",false);input.setText(name(user));
+            LinearLayout holder=column();pad(holder,18,12,18,9);holder.addView(input,lp(-1,52));
+            new AlertDialog.Builder(this).setTitle("Ваше имя").setView(holder)
+                .setNegativeButton("Отмена",null).setPositiveButton("Сохранить",(d,w)->{
+                    String value=input.getText().toString().trim();
+                    if(value.length()<2||value.length()>80){notice("Имя должно быть от 2 до 80 символов");return;}
+                    request("PATCH","/api/auth/profile",json("display_name",value),(data,error)->{
+                        if(error!=null){notice(error);return;}
+                        user=data.optJSONObject("user");if(user==null)user=new JSONObject();
+                        showHome("profile");
+                    });
+                }).show();
+        });
+        LinearLayout identity=column();pad(identity,18,19,18,18);
+        identity.setBackground(shape(PANEL,24));
+        list.addView(identity,lp(-1,-2));
+        identity.addView(text("ЛИЧНАЯ ИНФОРМАЦИЯ",12,BLUE,true));space(identity,12);
         TextView handleText=text("Публичный @username: не задан",16,BLUE,true);
-        list.addView(handleText);space(list,7);
+        identity.addView(handleText);space(identity,9);
         request("GET","/api/people/me",null,(data,error)->{
             if(epoch!=generation)return;
             if(error==null){
@@ -773,7 +901,7 @@ public final class NativeMessengerActivity extends Activity {
             }
         });
         Button updateHandle=button("Установить или изменить @username",false);
-        list.addView(updateHandle,lp(-1,50));space(list,18);
+        identity.addView(updateHandle,lp(-1,50));space(identity,18);
         updateHandle.setOnClickListener(v->{
             EditText field=field("Имя латиницей, от 5 до 32 символов",false);
             LinearLayout holder=column();pad(holder,20,10,20,8);holder.addView(field,lp(-1,52));
@@ -787,9 +915,9 @@ public final class NativeMessengerActivity extends Activity {
                     });
                 }).show();
         });
-        list.addView(text("Ваш Vainah ID",13,MUTED,false));space(list,7);
+        identity.addView(text("Ваш Vainah ID",13,MUTED,false));space(identity,7);
         TextView id=text(user.optString("id",""),12,TEXT,false);id.setTextIsSelectable(true);
-        list.addView(id);space(list,22);
+        identity.addView(id);space(list,22);
         request("GET","/api/messenger/v2/verification/me",null,(data,error)->{
             if(epoch!=generation)return;
             verified=error==null&&data.optBoolean("verified");
