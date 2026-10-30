@@ -57,7 +57,7 @@ public final class NativeGoogle {
                             }
                         }
                         @Override public void onError(@NonNull GetCredentialException e) {
-                            if (e instanceof GetCredentialCancellationException) return;
+                            if (e instanceof GetCredentialCancellationException) { callback.onError("Вход Google отменён."); return; }
                             callback.onError("Не удалось открыть Google-вход. Проверьте OAuth Android Client (package и SHA-1).");
                         }
                     });
