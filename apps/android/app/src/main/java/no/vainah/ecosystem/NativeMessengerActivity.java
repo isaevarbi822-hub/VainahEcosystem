@@ -47,13 +47,14 @@ import java.nio.charset.StandardCharsets;
  * components are Android Views; message synchronization uses Vainah API.
  */
 public final class NativeMessengerActivity extends Activity {
-    private static final int BG = Color.rgb(13, 14, 17);
-    private static final int PANEL = Color.rgb(29, 30, 34);
-    private static final int PANEL2 = Color.rgb(39, 40, 44);
-    private static final int TEXT = Color.rgb(249, 250, 252);
-    private static final int MUTED = Color.rgb(146, 148, 155);
-    private static final int BLUE = Color.rgb(34, 160, 246);
-    private static final int LINE = Color.rgb(48, 49, 55);
+    // Vainah Aurora: Telegram-like clarity with Vainah's own midnight-blue palette.
+    private static final int BG = Color.rgb(12, 17, 29);
+    private static final int PANEL = Color.rgb(20, 28, 43);
+    private static final int PANEL2 = Color.rgb(34, 46, 65);
+    private static final int TEXT = Color.rgb(243, 248, 255);
+    private static final int MUTED = Color.rgb(150, 169, 193);
+    private static final int BLUE = Color.rgb(55, 161, 252);
+    private static final int LINE = Color.rgb(39, 54, 76);
     private NativeApi api;
     private NativeMedia media;
     private NativeRealtime live;
@@ -111,7 +112,7 @@ public final class NativeMessengerActivity extends Activity {
         Button b = new Button(this);
         b.setAllCaps(false); b.setText(label); b.setTextSize(14);
         b.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
-        b.setTextColor(TEXT);b.setBackground(shape(primary?BLUE:PANEL2,14));
+        b.setTextColor(TEXT);b.setBackground(shape(primary?BLUE:PANEL2,19));
         b.setMinHeight(dp(48));b.setElevation(0);return b;
     }
     private EditText field(String hint, boolean password) {
