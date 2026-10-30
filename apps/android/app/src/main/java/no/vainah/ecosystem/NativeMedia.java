@@ -232,7 +232,8 @@ public final class NativeMedia {
             java.util.ArrayList<Uri> chosen=new java.util.ArrayList<>();
             if(data.getClipData()!=null){
                 ClipData clip=data.getClipData();
-                for(int i=0;i<Math.min(clip.getItemCount(),5);i++)
+                if(clip.getItemCount()>10)toast("За один раз можно отправить максимум 10 файлов");
+                for(int i=0;i<Math.min(clip.getItemCount(),10);i++)
                     chosen.add(clip.getItemAt(i).getUri());
             }else if(data.getData()!=null)chosen.add(data.getData());
             for(Uri uri:chosen){
@@ -240,7 +241,7 @@ public final class NativeMedia {
                 if(mime==null)mime="application/octet-stream";
                 sendUri(target,group,uri,displayName(uri),mime,null);
             }
-            if(chosen.size()>0)toast("Отправка: "+chosen.size()+" файл(ов)");
+            if(chosen.size()>0)toast("В очереди на отправку: "+chosen.size()+" файл(ов)");
         }
     }
 
