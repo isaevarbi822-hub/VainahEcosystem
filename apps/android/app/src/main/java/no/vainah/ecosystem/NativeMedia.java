@@ -207,8 +207,13 @@ public final class NativeMedia {
     }
 
     private void sendUri(String target,boolean group,Uri uri,String filename,String mime,File temp){
+        sendUriWithId(target,group,uri,filename,mime,temp,UUID.randomUUID().toString());
+    }
+
+    private void sendUriWithId(String target,boolean group,Uri uri,String filename,String mime,
+                               File temp,String uploadId){
         if(target==null || target.isEmpty()){if(temp!=null)temp.delete();return;}
-        api.uploadAttachment(target,group,uri,filename,mime,(response,error)->{
+        api.uploadAttachment(target,group,uri,filename,mime,uploadId,(response,error)->{
             if(error==null){
                 if(temp!=null)temp.delete();
                 listener.onSent(target,null);
@@ -221,7 +226,7 @@ public final class NativeMedia {
                             .setTitle("Не удалось отправить медиа")
                             .setMessage("Запись сохранена временно. Повторить отправку?")
                             .setPositiveButton("Повторить",(dialog,which)->
-                                    sendUri(target,group,uri,filename,mime,temp))
+                                    sendUriWithId(target,group,uri,filename,mime,temp,uploadId))
                             .setNegativeButton("Удалить",(dialog,which)->temp.delete())
                             .show();
                 }
