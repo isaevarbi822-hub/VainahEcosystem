@@ -31,7 +31,7 @@ def test_android_direct_message_actions_with_encrypted_storage(tmp_path, monkeyp
             "contact_id":aid,"body":"Ответ для проверки","reply_to_id":mid})
         assert reply.status_code==201,reply.text
         assert reply.json()["reply_to"]["id"]==mid
-        assert alice.patch(f"/api/messenger/v2/message/{mid}",headers=hb,
+        assert bob.patch(f"/api/messenger/v2/message/{mid}",headers=hb,
                            json={"body":"Недопустимое редактирование"}).status_code==404
         edited=alice.patch(f"/api/messenger/v2/message/{mid}",headers=ha,
                            json={"body":"Обновлённый текст"})
