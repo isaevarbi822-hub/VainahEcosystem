@@ -148,8 +148,12 @@ public final class NativeMedia {
                 .setItems(labels,(dialog,index)->{
                     File selected=pending.get(index);
                     JSONObject metadata=pendingInfo(selected);
-                    if(metadata!=null && (!contactId.equals(metadata.optString("target")) ||
-                            groupChat!=metadata.optBoolean("group"))){
+                    if(metadata==null){
+                        toast("У записи нет данных о получателе. Повторная отправка недоступна.");
+                        return;
+                    }
+                    if(!contactId.equals(metadata.optString("target")) ||
+                            groupChat!=metadata.optBoolean("group")){
                         toast("Откройте исходный чат для отправки этой записи");
                         return;
                     }
@@ -160,10 +164,11 @@ public final class NativeMedia {
                                 String mime=selected.getName().endsWith(".m4a")?"audio/mp4":"video/mp4";
                                 Uri uri=FileProvider.getUriForFile(activity,
                                         activity.getPackageName()+".media",selected);
-                                if(metadata!=null && !metadata.optString("upload_id").isEmpty())
-                                    sendUriWithId(contactId,groupChat,uri,selected.getName(),mime,selected,
-                                            metadata.optString("upload_id"));
-                                else sendUri(contactId,groupChat,uri,selected.getName(),mime,selected);
+                                String savedId=metadata.optString("upload_id");
+                                if(savedId.isEmpty()){
+                                    toast("Не найден идентификатор отправки");return;
+                                }
+                                sendUriWithId(contactId,groupChat,uri,selected.getName(),mime,selected,savedId);
                             })
                             .setNegativeButton("Удалить",(d,w)->{
                                 if(!selected.delete())toast("Не удалось удалить запись");
