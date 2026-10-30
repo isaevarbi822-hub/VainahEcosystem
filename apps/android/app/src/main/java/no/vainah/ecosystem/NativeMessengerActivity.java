@@ -1358,6 +1358,16 @@ public final class NativeMessengerActivity extends Activity {
                 .setMessage("Сейчас доступна тёмная тема Aurora. Светлая тема и дополнительные настройки оформления находятся в разработке. Системное отключение анимаций поддерживается.")
                 .setPositiveButton("Понятно",null).show();
         });
+        sectionLink(account,"🔒","Конфиденциальность","Кто видит данные вашего профиля",()->{
+            new AlertDialog.Builder(this).setTitle("Конфиденциальность")
+                .setMessage("Настройки видимости профиля ещё не доступны. Пока не используйте приложение для информации, которую хотите скрыть от других участников.")
+                .setPositiveButton("Понятно",null).show();
+        });
+        sectionLink(account,"▣","Устройства","Активные сеансы и безопасность",()->{
+            new AlertDialog.Builder(this).setTitle("Устройства")
+                .setMessage("Просмотр и завершение других сеансов пока не реализованы. Выход из текущего аккаунта доступен в профиле.")
+                .setPositiveButton("Понятно",null).show();
+        });
         sectionLink(account,"✓","Верификация Vainah","Статус подтверждения аккаунта",()->{
             request("GET","/api/messenger/v2/verification/me",null,(data,error)->{
                 if(error!=null){notice(error);return;}
