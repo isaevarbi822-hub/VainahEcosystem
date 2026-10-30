@@ -1363,6 +1363,15 @@ public final class NativeMessengerActivity extends Activity {
                 .setMessage("Настройки видимости профиля ещё не доступны. Пока не используйте приложение для информации, которую хотите скрыть от других участников.")
                 .setPositiveButton("Понятно",null).show();
         });
+        sectionLink(account,"◎","Мои данные","Обновить профиль с сервера",()->{
+            request("GET","/api/auth/me",null,(data,error)->{
+                if(error!=null){notice(error);return;}
+                JSONObject fresh=data.optJSONObject("user");
+                if(fresh==null){notice("Данные аккаунта недоступны");return;}
+                user=fresh;
+                showHome("profile");
+            });
+        });
         sectionLink(account,"▣","Устройства","Завершить сеансы на других устройствах",()->{
             new AlertDialog.Builder(this).setTitle("Безопасность устройств")
                 .setMessage("Завершить все остальные сеансы Vainah? На других устройствах потребуется снова войти. Текущий сеанс останется активным.")
