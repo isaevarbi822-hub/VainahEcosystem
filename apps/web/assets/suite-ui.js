@@ -207,6 +207,11 @@ async function messenger(root) {
   const status=E('p','vchat-footnote','Vainah Messenger · Ваши чаты. Ваш стиль.');root.append(status);
   let chosen=null, chats=[], groups=[], channels=[], bots=[], busy=false, polling=false, lastSignature='', activeFilter='all';
   let replyTarget=null, recorder=null, recordingStream=null, recordChunks=[];
+  const setReplyTarget=message=>{
+    replyTarget={id:message.id,body:message.body || 'Вложение'};
+    replyLabel.textContent='↩ '+replyTarget.body.slice(0,110);
+    replyBar.classList.remove('hidden');input.focus();
+  };
   const isGroup=()=>chosen?.kind==='group';
   const active=()=>document.getElementById('feature-root').contains(stage)&&
     state.user && (document.body.classList.contains('messenger-only') ||
@@ -240,11 +245,7 @@ async function messenger(root) {
     bubble.append(stamp);
     if(!message.deleted){
       const actions=E('div','vchat-message-actions');
-      if(!isGroup())actions.append(btn('↩ Ответить',()=>{
-        replyTarget={id:message.id,body:message.body || 'Вложение'};
-        replyLabel.textContent='↩ '+replyTarget.body.slice(0,110);
-        replyBar.classList.remove('hidden');input.focus();
-      },'vchat-mini'));
+      if(!isGroup())actions.append(btn('↩ Ответить',()=>setReplyTarget(message),'vchat-mini'));
       const reactPick=E('select','vchat-reaction-picker');
       const defaultOpt=E('option','','♡ Реакция');defaultOpt.value='';reactPick.append(defaultOpt);
       for(const emoji of ['❤️','👍','😂','😮','😢','🔥']){const opt=E('option','',emoji);opt.value=emoji;reactPick.append(opt);}
@@ -279,6 +280,20 @@ async function messenger(root) {
         },'vchat-mini'));
       }
       bubble.append(actions);
+    }
+    if(!message.deleted&&!isGroup()){
+      let touchStart=null;
+      bubble.addEventListener('touchstart',event=>{
+        if(event.touches.length!==1||event.target?.closest?.('button,input,select,textarea,audio,video,a')){touchStart=null;return;}
+        const point=event.touches[0];touchStart={x:point.clientX,y:point.clientY};
+      },{passive:true});
+      bubble.addEventListener('touchend',event=>{
+        if(!touchStart||!event.changedTouches.length)return;
+        const point=event.changedTouches[0];
+        const dx=point.clientX-touchStart.x,dy=point.clientY-touchStart.y;touchStart=null;
+        if(dx>=64&&dx>Math.abs(dy)*1.35)setReplyTarget(message);
+      },{passive:true});
+      bubble.addEventListener('touchcancel',()=>{touchStart=null;},{passive:true});
     }
     row.append(bubble);return row;
   };
