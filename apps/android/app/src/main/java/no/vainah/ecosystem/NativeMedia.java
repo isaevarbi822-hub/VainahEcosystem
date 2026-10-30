@@ -148,33 +148,37 @@ public final class NativeMedia {
                 .setItems(labels,(dialog,index)->{
                     File selected=pending.get(index);
                     JSONObject metadata=pendingInfo(selected);
-                    if(metadata==null){
-                        toast("У записи нет данных о получателе. Повторная отправка недоступна.");
-                        return;
-                    }
-                    if(!contactId.equals(metadata.optString("target")) ||
-                            groupChat!=metadata.optBoolean("group")){
-                        toast("Откройте исходный чат для отправки этой записи");
-                        return;
-                    }
-                    new AlertDialog.Builder(activity)
+                    boolean eligible=metadata!=null
+                            && contactId.equals(metadata.optString("target"))
+                            && groupChat==metadata.optBoolean("group")
+                            && !metadata.optString("upload_id").isEmpty();
+                    String explanation=metadata==null
+                            ? "Для этой записи нет данных о получателе. Можно только удалить файл."
+                            : !eligible
+                            ? "Эту запись можно отправить только из исходного чата с сохранённым идентификатором."
+                            : "Отправить запись в открытый чат? Сначала проверьте, не была ли она доставлена.";
+                    AlertDialog.Builder action=new AlertDialog.Builder(activity)
                             .setTitle("Сохранённая запись")
-                            .setMessage("Отправить файл в открытый чат? Проверьте, не был ли он отправлен раньше.")
-                            .setPositiveButton("Отправить",(d,w)->{
-                                String mime=selected.getName().endsWith(".m4a")?"audio/mp4":"video/mp4";
-                                Uri uri=FileProvider.getUriForFile(activity,
-                                        activity.getPackageName()+".media",selected);
-                                String savedId=metadata.optString("upload_id");
-                                if(savedId.isEmpty()){
-                                    toast("Не найден идентификатор отправки");return;
-                                }
-                                sendUriWithId(contactId,groupChat,uri,selected.getName(),mime,selected,savedId);
-                            })
+                            .setMessage(explanation)
                             .setNegativeButton("Удалить",(d,w)->{
                                 if(!selected.delete())toast("Не удалось удалить запись");
                                 else forgetPending(selected);
                             })
-                            .setNeutralButton("Отмена",null).show();
+                            .setNeutralButton("Отмена",null);
+                    if(eligible){
+                        final String savedId=metadata.optString("upload_id");
+                        action.setPositiveButton("Отправить",(d,w)->{
+                            try{
+                                String mime=selected.getName().endsWith(".m4a")?"audio/mp4":"video/mp4";
+                                Uri uri=FileProvider.getUriForFile(activity,
+                                        activity.getPackageName()+".media",selected);
+                                sendUriWithId(contactId,groupChat,uri,selected.getName(),mime,selected,savedId);
+                            }catch(RuntimeException ex){
+                                toast("Не удалось открыть запись");
+                            }
+                        });
+                    }
+                    action.show();
                 }).setNegativeButton("Закрыть",null).show();
     }
 
