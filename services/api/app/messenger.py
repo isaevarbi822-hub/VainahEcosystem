@@ -204,15 +204,23 @@ def search_messages(contact_id: str, q: str, db: Session = Depends(get_db),
     q = q.strip()
     if len(q) < 2 or len(q) > 80:
         raise HTTPException(422, "Поисковый запрос от 2 до 80 символов")
-    # Literal substring matching: SQL wildcard characters are not search operators.
-    escaped = q.replace(chr(92), chr(92)*2).replace("%", chr(92)+"%").replace("_", chr(92)+"_")
-    matches = db.scalars(select(DirectMessage).where(
-        pair_filter(user.id, contact_id),
-        DirectMessage.body.ilike(f"%{escaped}%", escape=chr(92)),
-    ).order_by(DirectMessage.created_at.desc()).limit(50)).all()
-    return {"items": [view_message(db, message, user.id) for message in matches
-                      if not (db.get(MessageDetails, message.id) and
-                              db.get(MessageDetails, message.id).deleted_at)]}
+    # Ciphertexts cannot be searched with SQL LIKE. Scan a bounded number
+    # of the most recent messages after decryption and preserve literal matching.
+    candidates = db.scalars(select(DirectMessage).where(
+        pair_filter(user.id, contact_id)
+    ).order_by(DirectMessage.created_at.desc()).limit(1000)).all()
+    found = []
+    needle = q.casefold()
+    for message in candidates:
+        if needle not in message.body.casefold():
+            continue
+        metadata = db.get(MessageDetails, message.id)
+        if metadata and metadata.deleted_at:
+            continue
+        found.append(view_message(db, message, user.id))
+        if len(found) >= 50:
+            break
+    return {"items": found}
 
 
 @router.get("/thread/{contact_id}")
