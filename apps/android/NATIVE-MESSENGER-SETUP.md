@@ -113,3 +113,31 @@ The Android app must be tested on a real device; successful compilation alone do
 - Клиент принимает и хранит только cookie \`vainah_session\`, а не произвольные cookies.
 - Системные push, видеозвонки, сквозное шифрование, фото профиля и offline-хранилище переписок пока не реализованы.
 - Проверка в CI не заменяет проверку Google/Apple входа и сообщений на телефоне. Обновлённый Python API нужно развернуть на Render.
+
+
+## 0.9.6 — real-time, серверная галочка и защита хранения
+
+### Мгновенное обновление
+- Нативный Android Messenger соединяется по **WSS** с существующим \`/api/messenger/v2/live\` с cookie своей сессии, не добавляя токены в URL.
+- Сообщения и события групп обновляют открытые чаты сразу, пока приложение активно. Резервное REST-обновление остаётся. При временном обрыве соединение переподключается с паузами.
+- В личных чатах есть одноразовый индикатор **«печатает…»**, передаётся только сигнал, не набираемый текст.
+- Для собственных отправленных сообщений показывается ✓ или ✓✓ в зависимости от подтверждённого сервером прочтения.
+- Это **не** Android push: если приложение закрыто, уведомления вне приложения пока не работают.
+
+### Подтверждение аккаунта
+- Галочка выдаётся/снимается **только администратором** из \`VAINAH_VERIFICATION_ADMIN_IDS\` на сервере. Владелец Vainah ID сам себе её поставить не может.
+- Галочка показывается в профиле, результатах поиска по никнейму или точному ID и личных чатах. Администратор может указать UUID, Vainah ID или \`@username\`.
+
+### Шифрование сообщений в базе (AES-256-GCM)
+- Новый \`EncryptedMessageText\` хранит новые тексты **личных и групповых сообщений** в зашифрованном виде, когда серверу передан корректный \`VAINAH_MESSAGE_ENCRYPTION_KEY\`. Работает и с legacy API через общие модели SQLAlchemy.
+- Generate a 32-byte key once and copy the output privately into **Render → Environment**:
+
+\`\`\`powershell
+python -c "import secrets,base64; print(base64.urlsafe_b64encode(secrets.token_bytes(32)).decode())"
+\`\`\`
+
+- Name on Render: \`VAINAH_MESSAGE_ENCRYPTION_KEY\`; Value: generated private Base64 string.
+- NEVER put the key in GitHub, Android APK, screenshots or this chat. Store a secure offline backup. Key loss makes encrypted messages unreadable; changing it without a planned migration breaks decryption.
+- Existing older plaintext records remain readable and **are not retroactively encrypted automatically**. Images/files and other app data are not covered by this message-body encryption.
+- The Vainah server holds the key and decrypts messages for clients. **Это не сквозное шифрование (E2EE).** Нельзя маркировать обычные чаты как «E2EE» до отдельного клиентского протокола с ключами на устройствах, проверкой идентичности и аудитом.
+- If Render has not been updated or the key is missing, plaintext storage is still possible. This release alone does not prove live data is encrypted.
