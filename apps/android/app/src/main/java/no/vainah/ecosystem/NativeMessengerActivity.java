@@ -251,6 +251,13 @@ public final class NativeMessengerActivity extends Activity {
             floatParams.setMargins(0,0,dp(19),dp(22));
             contentFrame.addView(floating,floatParams);floating.setOnClickListener(v->newChat());
             loadChats(epoch);
+            handler.postDelayed(new Runnable(){
+                @Override public void run(){
+                    if(epoch!=generation||!tab.equals("chats")||isFinishing())return;
+                    loadChats(epoch);
+                    handler.postDelayed(this,15000);
+                }
+            },15000);
         }else if(target.equals("channels"))loadChannels(epoch);
         else if(target.equals("bots"))loadBots(epoch);
         else loadProfile(epoch);
@@ -461,6 +468,14 @@ public final class NativeMessengerActivity extends Activity {
             });
         });
         refresh.run();
+        final int threadEpoch=generation;
+        handler.postDelayed(new Runnable(){
+            @Override public void run(){
+                if(threadEpoch!=generation||isFinishing())return;
+                refresh.run();
+                handler.postDelayed(this,10000);
+            }
+        },10000);
     }
 
     private void addBubble(LinearLayout panel,String body,boolean mine,String timestamp,boolean deleted){
@@ -639,5 +654,5 @@ public final class NativeMessengerActivity extends Activity {
         request("POST","/api/messenger/v2/verification/manage",value,(d,e)->notice(e!=null?e:"Статус обновлён"));
     }
     @Override public void onBackPressed(){if(user.optString("id","").isEmpty()){super.onBackPressed();return;}showHome("chats");}
-    @Override protected void onDestroy(){generation++;if(api!=null)api.close();super.onDestroy();}
+    @Override protected void onDestroy(){generation++;handler.removeCallbacksAndMessages(null);if(api!=null)api.close();super.onDestroy();}
 }
