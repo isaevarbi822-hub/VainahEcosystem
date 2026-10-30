@@ -53,7 +53,7 @@ jobs:
           if (!(Test-Path dist/Vainah-Ecosystem.exe)) { throw "Ecosystem EXE not created" }
       - uses: actions/upload-artifact@v4
         with:
-          name: Vainah-Windows-v0.8.0
+          name: Vainah-Windows-v0.8.1
           path: |
             dist/Vainah-Ecosystem.exe
             dist/Vainah-Messenger.exe
@@ -116,12 +116,12 @@ jobs:
           gradle -p apps/android :app:assembleDebug "${extra[@]}" --stacktrace --warning-mode all --no-daemon 2>&1 | tee android-ci-logs/ecosystem.log
           echo '::endgroup::'
           test -s apps/android/app/build/outputs/apk/debug/app-debug.apk
-          cp apps/android/app/build/outputs/apk/debug/app-debug.apk Vainah-Ecosystem-v0.8.0-debug.apk
+          cp apps/android/app/build/outputs/apk/debug/app-debug.apk Vainah-Ecosystem-v0.8.1-debug.apk
           echo '::group::Build Vainah Messenger'
           gradle -p apps/android :app:assembleDebug "${extra[@]}" -PVAINAH_MESSENGER=true --rerun-tasks --stacktrace --warning-mode all --no-daemon 2>&1 | tee android-ci-logs/messenger.log
           echo '::endgroup::'
           test -s apps/android/app/build/outputs/apk/debug/app-debug.apk
-          cp apps/android/app/build/outputs/apk/debug/app-debug.apk Vainah-Messenger-v0.8.0-debug.apk
+          cp apps/android/app/build/outputs/apk/debug/app-debug.apk Vainah-Messenger-v0.8.1-debug.apk
       - name: Upload Android diagnostics even when build fails
         if: always()
         uses: actions/upload-artifact@v4
@@ -134,9 +134,9 @@ jobs:
           retention-days: 14
       - uses: actions/upload-artifact@v4
         with:
-          name: Vainah-Android-v0.8.0
+          name: Vainah-Android-v0.8.1
           path: |
-            Vainah-Ecosystem-v0.8.0-debug.apk
-            Vainah-Messenger-v0.8.0-debug.apk
+            Vainah-Ecosystem-v0.8.1-debug.apk
+            Vainah-Messenger-v0.8.1-debug.apk
           retention-days: 14
           if-no-files-found: error
