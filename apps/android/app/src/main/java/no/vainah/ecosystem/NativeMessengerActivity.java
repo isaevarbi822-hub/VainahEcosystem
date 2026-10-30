@@ -743,6 +743,11 @@ public final class NativeMessengerActivity extends Activity {
                 for(int i=0;i<items.length();i++){
                     JSONObject message=items.optJSONObject(i);if(message==null)continue;
                     String content=message.optString("body","");
+                    JSONObject attachment=message.optJSONObject("attachment");
+                    if(attachment!=null && !message.optBoolean("deleted")){
+                        content="📎 "+attachment.optString("filename","Вложение")+
+                                " · "+(attachment.optLong("size")/1024)+" КБ";
+                    }
                     if(group && !message.optBoolean("mine") && !message.optBoolean("deleted"))
                         content=message.optString("sender","Участник")+":\n"+content;
                     boolean own=message.optBoolean("mine");
