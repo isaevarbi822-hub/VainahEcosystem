@@ -49,7 +49,7 @@ def test_native_messenger_091_groups_and_safe_navigation():
     assert 'if(threadEpoch!=generation)return;' in native
     assert "stickToBottom" in native
     assert 'inDetail' in native
-    assert "versionName '0.9.6'" in gradle
+    assert "versionName '0.9.7'" in gradle
 
 
 def test_native_092_usernames_and_invites():
@@ -76,7 +76,7 @@ def test_native_messenger_094_permanent_numeric_id():
     assert 'ClipData.newPlainText("Vainah ID",number)' in native
     assert '"/api/people/id/"' in native
     gradle = (ANDROID / "build.gradle").read_text(encoding="utf-8")
-    assert "versionName '0.9.6'" in gradle
+    assert "versionName '0.9.7'" in gradle
 
 def test_native_messenger_095_reliability_and_controls():
     native = (SOURCE / "NativeMessengerActivity.java").read_text(encoding="utf-8")
@@ -102,4 +102,12 @@ def test_native_messenger_096_live_and_verified():
     assert "person.optBoolean(\"verified\")" in native
     assert "wss://" in realtime
     assert 'header("Cookie", sessionCookie)' in realtime
-    assert "versionName '0.9.6'" in gradle
+    assert "versionName '0.9.7'" in gradle
+
+def test_native_messenger_097_security_status_display():
+    native = (SOURCE / "NativeMessengerActivity.java").read_text(encoding="utf-8")
+    assert "/api/messenger/v2/security-status" in native
+    assert "Сквозное шифрование" not in native or "не" in native
+    assert "end_to_end_encryption" in native or "E2EE" in native
+    gradle = (ANDROID / "build.gradle").read_text(encoding="utf-8")
+    assert "versionName '0.9.7'" in gradle
