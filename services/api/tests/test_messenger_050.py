@@ -103,7 +103,7 @@ def test_report_access_and_csrf(app):
 
 def test_existing_suite_and_manifest_routes_survive(app):
     a, alice, ha = new_user(app,'alice@example.net')
-    assert a.get('/api/health').json()['version']=='0.7.0'
+    assert a.get('/api/health').json()['version']==app.version
     assert a.get('/app/messenger').status_code==200
     assert a.get('/app/notes').status_code==200
     assert a.get('/api/notes').status_code==200
