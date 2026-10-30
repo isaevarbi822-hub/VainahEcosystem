@@ -119,6 +119,23 @@ def update_password(data: PasswordChange, request: Request, db: Session = Depend
     return {"ok": True, "revoked_sessions": len(other_sessions)}
 
 
+@router.get("/sessions")
+def list_sessions(user: User = Depends(current_user),
+                  session: LoginSession = Depends(current_session),
+                  db: Session = Depends(get_db)):
+    """List active sessions without exposing tokens, IPs or credentials."""
+    import time
+    records = db.scalars(select(LoginSession).where(
+        LoginSession.user_id == user.id,
+        LoginSession.expires_at > int(time.time())
+    ).order_by(LoginSession.created_at.desc())).all()
+    return {"items": [
+        {"id": row.id, "current": row.id == session.id,
+         "created_at": row.created_at, "expires_at": row.expires_at}
+        for row in records
+    ]}
+
+
 @router.post("/logout-others", dependencies=[Depends(csrf_protect)])
 def logout_others(request: Request, db: Session = Depends(get_db),
                   user: User = Depends(current_user), session: LoginSession = Depends(current_session)):
