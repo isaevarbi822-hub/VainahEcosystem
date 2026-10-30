@@ -121,7 +121,7 @@ def test_native_chat_actions_098():
                   '"/api/messenger/v2/search/"+contactId',
                   'if(!sentReply.isEmpty())data.put("reply_to_id",sentReply)',
                   '"PATCH","/api/messenger/v2/message/"+id',
-                  '"DELETE","/api/messenger/v2/message/"+id',
+                  '"/api/messenger/v2/message/"+id,null',
                   'attachment.optString("filename","Вложение")'):
         assert value in native, value
     assert "versionName '0.9.8'" in gradle
