@@ -247,3 +247,24 @@ body.messenger-only{margin:0;background:var(--vm-bg);color:var(--vm-ink);font:15
  .messenger-only .vchat-contact{min-height:76px}
  .messenger-only .vchat-header-actions button{min-width:44px;min-height:44px}
 }
+
+/* Aurora mobile viewport: safe area, compact content and predictable scrolling. */
+@media(max-width:700px){
+  .messenger-only .vm-app-rail{
+    padding-bottom:max(8px,env(safe-area-inset-bottom));
+  }
+  .messenger-only .vm-floating-compose{
+    bottom:calc(93px + env(safe-area-inset-bottom));
+    right:max(18px,env(safe-area-inset-right));
+  }
+  .messenger-only .vchat-sidebar{overscroll-behavior:contain}
+  .messenger-only .vchat-contacts{overscroll-behavior-y:contain}
+  .messenger-only .vchat-composer{
+    padding-left:max(9px,env(safe-area-inset-left));
+    padding-right:max(9px,env(safe-area-inset-right));
+  }
+  .messenger-only .vchat-header{
+    padding-left:max(10px,env(safe-area-inset-left));
+    padding-right:max(10px,env(safe-area-inset-right));
+  }
+}
