@@ -119,15 +119,15 @@ jobs:
           test -s apps/android/app/build/outputs/apk/debug/app-debug.apk
           cp apps/android/app/build/outputs/apk/debug/app-debug.apk Vainah-Ecosystem-v0.9.0-debug.apk
           echo '::group::Build Vainah Messenger'
-          if [ -z "${VAINAH_URL}" ]; then
-            echo '::error::Set repository variable VAINAH_BASE_URL to your API HTTPS origin before building native Messenger'
-            exit 1
-          fi
-          if [ -z "${GOOGLE_WEB_CLIENT_ID}" ]; then
-            echo '::warning::VAINAH_GOOGLE_WEB_CLIENT_ID missing: Google sign-in disabled in this APK'
-          fi
+          # Compile the native app even before repository variables are
+          # configured. If compilation succeeds but config is missing, report
+          # configuration failure without distributing an unusable APK.
           gradle -p apps/android :app:assembleDebug "${extra[@]}" -PVAINAH_MESSENGER=true "-PVAINAH_GOOGLE_WEB_CLIENT_ID=${GOOGLE_WEB_CLIENT_ID}" --rerun-tasks --stacktrace --warning-mode all --no-daemon 2>&1 | tee android-ci-logs/messenger.log
           echo '::endgroup::'
+          if [ -z "${VAINAH_URL}" ] || [ -z "${GOOGLE_WEB_CLIENT_ID}" ]; then
+            echo '::error::Add GitHub repository variables VAINAH_BASE_URL and VAINAH_GOOGLE_WEB_CLIENT_ID for a usable native Messenger APK'
+            exit 1
+          fi
           test -s apps/android/app/build/outputs/apk/debug/app-debug.apk
           cp apps/android/app/build/outputs/apk/debug/app-debug.apk Vainah-Messenger-v0.9.0-debug.apk
       - name: Upload Android diagnostics even when build fails
