@@ -48,8 +48,31 @@ def inform(request: Request, users: list[str], event: str, **kwargs) -> None:
         hub.publish(users, {"type": event, **kwargs})
 
 EMOJI = {"❤️", "👍", "😂", "😮", "😢", "🔥"}
-MAX_UPLOAD = 5 * 1024 * 1024
-ACCEPTED = {"image/jpeg", "image/png", "image/webp", "image/gif", "audio/mpeg", "audio/wav", "audio/ogg", "audio/mp4", "audio/webm"}
+MAX_UPLOAD = 20 * 1024 * 1024
+MEDIA_LIMITS = {
+    "image/jpeg": 8 * 1024 * 1024, "image/png": 8 * 1024 * 1024,
+    "image/webp": 8 * 1024 * 1024, "image/gif": 8 * 1024 * 1024,
+    "audio/mpeg": 12 * 1024 * 1024, "audio/wav": 12 * 1024 * 1024,
+    "audio/ogg": 12 * 1024 * 1024, "audio/mp4": 12 * 1024 * 1024,
+    "audio/webm": 12 * 1024 * 1024, "video/mp4": 20 * 1024 * 1024,
+    "video/webm": 20 * 1024 * 1024, "application/pdf": 12 * 1024 * 1024,
+    "application/zip": 12 * 1024 * 1024,
+}
+ACCEPTED = set(MEDIA_LIMITS)
+
+def verified_upload_type(content: bytes, claimed: str) -> str | None:
+    """Validate actual magic bytes; generic MP4/WebM containers need MIME hint."""
+    base = detected_type(content)
+    claimed = (claimed or "").split(";", 1)[0].strip().lower()
+    if content.startswith(b"%PDF-"):
+        return "application/pdf"
+    if content.startswith(b"PK\\x03\\x04"):
+        return "application/zip"
+    if base == "audio/mp4":
+        return "video/mp4" if claimed == "video/mp4" else "audio/mp4"
+    if base == "audio/webm":
+        return "video/webm" if claimed == "video/webm" else "audio/webm"
+    return base if base in ACCEPTED else None
 _SEND_TIMES: dict[str, deque] = defaultdict(deque)
 _SEND_LOCK = Lock()
 
@@ -143,6 +166,12 @@ def view_message(db: Session, message: DirectMessage, viewer_id: str) -> dict:
         "attachment": None if is_deleted or not attachment else {
             "id": attachment.id, "filename": attachment.filename,
             "type": attachment.media_type, "size": attachment.size,
+            "kind": ("video_note" if attachment.media_type.startswith("video/")
+                     and attachment.filename.startswith("video-note-") else
+                     "voice" if attachment.media_type.startswith("audio/")
+                     and attachment.filename.startswith("voice-") else
+                     "photo" if attachment.media_type.startswith("image/") else
+                     "video" if attachment.media_type.startswith("video/") else "file"),
             "url": f"/api/messenger/v2/file/{attachment.id}",
         },
     }
@@ -288,12 +317,15 @@ async def send_file(request: Request, contact_id: str = Form(...), file: UploadF
     enforce_origin(request)
     check_pair(db, user.id, contact_id)
     validate_send_rate(user.id)
+    # Bounded read before inspecting magic bytes, never trust a filename alone.
     content = await file.read(MAX_UPLOAD + 1)
     if not content or len(content) > MAX_UPLOAD:
-        raise HTTPException(413, "Максимум 5 МБ")
-    mime = detected_type(content)
+        raise HTTPException(413, "Файл слишком большой (максимум 20 МБ)")
+    mime = verified_upload_type(content, file.content_type or "")
     if mime not in ACCEPTED:
-        raise HTTPException(415, "Допустимы изображения и аудиофайлы")
+        raise HTTPException(415, "Поддерживаются фото, аудио, MP4/WebM, PDF и ZIP")
+    if len(content) > MEDIA_LIMITS[mime]:
+        raise HTTPException(413, "Размер файла превышает лимит формата")
     name = (file.filename or "file").replace("\\", "/").split("/")[-1][:160]
     msg = DirectMessage(sender_id=user.id, recipient_id=contact_id, body="")
     db.add(msg)
@@ -317,7 +349,8 @@ def file_get(attachment_id: str, db: Session = Depends(get_db), user: User = Dep
     return Response(a.content, media_type=a.media_type, headers={
         "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff",
         "Content-Security-Policy": "default-src 'none'; sandbox",
-        "Content-Disposition": "inline",
+        "Content-Disposition": ("inline" if a.media_type.startswith(("image/", "video/", "audio/"))
+                                 else "attachment"),
     })
 
 
