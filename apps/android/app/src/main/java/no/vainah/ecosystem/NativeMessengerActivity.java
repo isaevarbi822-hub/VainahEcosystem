@@ -119,8 +119,20 @@ public final class NativeMessengerActivity extends Activity {
         Toast.makeText(this,message,Toast.LENGTH_LONG).show();
     }
     private void request(String method,String path,JSONObject payload,NativeApi.Callback callback) {
-        if(api==null){notice("Нужен Vainah API. Добавьте VAINAH_BASE_URL в GitHub Variables и пересоберите приложение.");return;}
-        api.call(method,path,payload,callback);
+        if(api==null){
+            notice("Нужен Vainah API. Добавьте VAINAH_BASE_URL в GitHub Variables и пересоберите приложение.");
+            callback.complete(new JSONObject(),"Сервер Vainah не настроен");
+            return;
+        }
+        api.call(method,path,payload,(result,error)->{
+            if(error!=null && !api.hasSession() && !user.optString("id","").isEmpty()){
+                user=new JSONObject();
+                showLogin();
+                notice("Сеанс Vainah завершён. Войдите снова.");
+                return;
+            }
+            callback.complete(result,error);
+        });
     }
     private JSONObject json(String... pairs) {
         JSONObject object = new JSONObject();
@@ -736,7 +748,9 @@ public final class NativeMessengerActivity extends Activity {
     private void showChatOptions(JSONObject contact,boolean group){
         String id=contact.optString("id");
         if(group){
-            String[] items={"Участники группы","Пригласить по @username","Покинуть группу"};
+            boolean isOwner=user.optString("id","").equals(contact.optString("owner_id"));
+            String[] items={"Участники группы","Пригласить по @username",
+                    isOwner?"Удалить группу":"Покинуть группу"};
             new AlertDialog.Builder(this).setTitle(name(contact))
                 .setItems(items,(dialog,which)->{
                     if(which==0){
@@ -760,10 +774,16 @@ public final class NativeMessengerActivity extends Activity {
                             promptUsernameInvite("/api/messenger/v2/groups/"+id+"/invite","Добавить в группу");
                         });
                     }else{
-                        new AlertDialog.Builder(this).setTitle("Покинуть группу?")
-                            .setMessage("Вы перестанете получать сообщения этой группы.")
-                            .setPositiveButton("Покинуть",(d,w)->request("DELETE",
-                                "/api/messenger/v2/groups/"+id+"/leave",null,(response,error)->{
+                        String action=isOwner?"Удалить группу?":"Покинуть группу?";
+                        String message=isOwner?
+                                "Группа и все её сообщения будут удалены для всех участников. Это нельзя отменить.":
+                                "Вы перестанете получать сообщения этой группы.";
+                        String path=isOwner?"/api/messenger/v2/groups/"+id:
+                                "/api/messenger/v2/groups/"+id+"/leave";
+                        new AlertDialog.Builder(this).setTitle(action)
+                            .setMessage(message)
+                            .setPositiveButton(isOwner?"Удалить":"Покинуть",(d,w)->request("DELETE",
+                                path,null,(response,error)->{
                                     if(error!=null)notice(error);else showHome("chats");
                                 }))
                             .setNegativeButton("Отмена",null).show();
