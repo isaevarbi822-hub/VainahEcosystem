@@ -6,6 +6,7 @@ import uuid
 from sqlalchemy import ForeignKey, Index, Integer, LargeBinary, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from .database import Base
+from .message_crypto import EncryptedMessageText
 
 
 def now() -> int:
@@ -89,7 +90,7 @@ class DirectMessage(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
     sender_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     recipient_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
-    body: Mapped[str] = mapped_column(Text)
+    body: Mapped[str] = mapped_column(EncryptedMessageText())
     created_at: Mapped[int] = mapped_column(Integer, default=now)
 
 
@@ -206,7 +207,7 @@ class MessengerGroupMessage(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
     group_id: Mapped[str] = mapped_column(ForeignKey("messenger_groups.id", ondelete="CASCADE"), index=True)
     sender_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
-    body: Mapped[str] = mapped_column(Text)
+    body: Mapped[str] = mapped_column(EncryptedMessageText())
     created_at: Mapped[int] = mapped_column(Integer, default=now)
     deleted_at: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
