@@ -127,7 +127,13 @@ public final class NativeMedia {
      * targets the currently open conversation, never a guessed recipient. */
     public void showPendingRecordings(){
         if(contactId.isEmpty()){toast("Сначала откройте нужный чат");return;}
-        File[] all=pendingMediaDirectory().listFiles();
+        File[] all;
+        try {
+            all=pendingMediaDirectory().listFiles();
+        }catch(IllegalStateException ex){
+            toast("Не удалось открыть сохранённые записи");
+            return;
+        }
         java.util.ArrayList<File> pending=new java.util.ArrayList<>();
         if(all!=null)for(File file:all){
             if(file.isFile() && file.length()>0 &&
