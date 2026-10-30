@@ -1363,10 +1363,15 @@ public final class NativeMessengerActivity extends Activity {
                 .setMessage("Настройки видимости профиля ещё не доступны. Пока не используйте приложение для информации, которую хотите скрыть от других участников.")
                 .setPositiveButton("Понятно",null).show();
         });
-        sectionLink(account,"▣","Устройства","Активные сеансы и безопасность",()->{
-            new AlertDialog.Builder(this).setTitle("Устройства")
-                .setMessage("Просмотр и завершение других сеансов пока не реализованы. Выход из текущего аккаунта доступен в профиле.")
-                .setPositiveButton("Понятно",null).show();
+        sectionLink(account,"▣","Устройства","Завершить сеансы на других устройствах",()->{
+            new AlertDialog.Builder(this).setTitle("Безопасность устройств")
+                .setMessage("Завершить все остальные сеансы Vainah? На других устройствах потребуется снова войти. Текущий сеанс останется активным.")
+                .setPositiveButton("Завершить другие сеансы",(dialog,which)->
+                    request("POST","/api/auth/logout-others",new JSONObject(),(data,error)->{
+                        if(error!=null){notice(error);return;}
+                        notice("Другие сеансы завершены: "+data.optInt("revoked_sessions",0));
+                    }))
+                .setNegativeButton("Отмена",null).show();
         });
         sectionLink(account,"✓","Верификация Vainah","Статус подтверждения аккаунта",()->{
             request("GET","/api/messenger/v2/verification/me",null,(data,error)->{
