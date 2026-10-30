@@ -123,6 +123,21 @@ public final class NativeMessengerActivity extends Activity {
         e.setBackground(border(PANEL2,14));pad(e,15,10,15,10);
         return e;
     }
+    /** Subtle native transitions; honour the device accessibility animation setting. */
+    private void reveal(View view, boolean fromRight) {
+        if(view==null || !view.isAttachedToWindow())return;
+        if(android.os.Build.VERSION.SDK_INT>=26 &&
+                !android.animation.ValueAnimator.areAnimatorsEnabled())return;
+        view.animate().cancel();
+        view.setAlpha(0f);
+        view.setTranslationX(dp(fromRight?18:0));
+        view.setTranslationY(dp(fromRight?0:10));
+        view.animate().alpha(1f).translationX(0f).translationY(0f)
+                .setDuration(220)
+                .setInterpolator(new android.view.animation.DecelerateInterpolator())
+                .start();
+    }
+
     private void reset() {
         root.removeAllViews();root.setBackgroundColor(BG);
     }
@@ -331,6 +346,7 @@ public final class NativeMessengerActivity extends Activity {
         startLive();
         inDetail = false;
         tab=target;int epoch=++generation;chatRefreshInProgress=false;reset();
+        root.post(()->reveal(root,false));
         LinearLayout top=row();pad(top,20,15,13,8);root.addView(top,lp(-1,75));
         TextView heading=text(target.equals("chats")?"Vainah":target.equals("contacts")?"Контакты":
                 target.equals("profile")?"Профиль":target.equals("channels")?"Каналы":
@@ -566,7 +582,20 @@ public final class NativeMessengerActivity extends Activity {
         item.addView(trailing,lp(40,-2));container.addView(item,lp(-1,-2));
         View divider=new View(this);divider.setBackgroundColor(LINE);
         LinearLayout.LayoutParams dl=lp(-1,1);dl.leftMargin=dp(83);container.addView(divider,dl);
-        item.setOnClickListener(v->click.run());
+        android.util.TypedValue rippleColor=new android.util.TypedValue();
+        getTheme().resolveAttribute(android.R.attr.colorControlHighlight,rippleColor,true);
+        android.graphics.drawable.Drawable ripple=new android.graphics.drawable.RippleDrawable(
+                android.content.res.ColorStateList.valueOf(0x303aaaff),
+                shape(PANEL,16),null);
+        item.setBackground(ripple);
+        item.setOnClickListener(v->{
+            item.animate().cancel();
+            item.animate().scaleX(.985f).scaleY(.985f).setDuration(85)
+                    .withEndAction(()->{
+                        item.setScaleX(1f);item.setScaleY(1f);
+                        click.run();
+                    }).start();
+        });
     }
 
     private void newConversation() {
@@ -686,6 +715,7 @@ public final class NativeMessengerActivity extends Activity {
                         "@"+contact.optString("username"));
         threadNormalSubtitle=normalSubtitle;
         showDetail(name(contact),contact.optBoolean("verified"),normalSubtitle);
+        root.post(()->reveal(root,true));
         if(root.getChildCount()>1 && root.getChildAt(1) instanceof TextView)
             currentThreadSubtitle=(TextView)root.getChildAt(1);
         LinearLayout threadHeader=(LinearLayout)root.getChildAt(0);
