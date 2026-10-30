@@ -47,6 +47,9 @@ public final class NativeApi {
         restore();
     }
 
+    /** Apple OAuth handoff: code is verified on the server and proof remains in Android. */
+    public String baseUrl() { return origin; }
+
     public boolean hasSession() { return !cookie.isEmpty(); }
 
     private SecretKey secretKey() throws Exception {
