@@ -1297,7 +1297,7 @@ public final class NativeMessengerActivity extends Activity {
                 .setPositiveButton("Понятно",null).show();
         });
         space(list,18);
-        list.addView(text("VAINAH MESSENGER  ·  0.9.7",12,MUTED,false));
+        list.addView(text("VAINAH MESSENGER  ·  0.10.1",12,MUTED,false));
     }
 
     private void loadContacts(int epoch){
