@@ -6,14 +6,15 @@ checks are enforced server-side, independent of client UI.
 from __future__ import annotations
 
 import time
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, File, UploadFile
+from fastapi.responses import Response
 from pydantic import BaseModel, Field
 from sqlalchemy import select, func
 from sqlalchemy.orm import Session
 
 from .database import get_db
-from .models import MessengerGroup, MessengerGroupMember, MessengerGroupMessage, User
-from .messenger import block_exists, validate_send_rate, inform
+from .models import MessengerGroup, MessengerGroupMember, MessengerGroupMessage, MessengerGroupAttachment, User
+from .messenger import block_exists, validate_send_rate, inform, MAX_UPLOAD, MEDIA_LIMITS, verified_upload_type
 from .handles import find_by_username
 from .security import current_user, csrf_protect, enforce_origin
 
@@ -57,7 +58,7 @@ def group_view(db: Session, group: MessengerGroup, member: MessengerGroupMember)
         MessengerGroupMessage.created_at > member.last_read_at,
     )) or 0
     return {"id": group.id, "name": group.name, "owner_id": group.owner_id,
-            "members": len(members), "preview": "Сообщение удалено" if last and last.deleted_at else (last.body[:100] if last else "Новая группа"),
+            "members": len(members), "preview": "Сообщение удалено" if last and last.deleted_at else ((last.body[:100] or "📎 Медиафайл") if last else "Новая группа"),
             "unread": unread, "updated_at": (last.created_at // 1000) if last else group.created_at}
 
 
@@ -119,6 +120,24 @@ def group_info(group_id: str, db: Session = Depends(get_db), user: User = Depend
     ]}
 
 
+def group_attachment_view(db: Session, message: MessengerGroupMessage):
+    attachment = db.scalar(select(MessengerGroupAttachment).where(
+        MessengerGroupAttachment.message_id == message.id))
+    if not attachment:
+        return None
+    return {
+        "id": attachment.id, "filename": attachment.filename,
+        "type": attachment.media_type, "size": attachment.size,
+        "kind": ("video_note" if attachment.media_type.startswith("video/")
+                 and attachment.filename.startswith("video-note-") else
+                 "voice" if attachment.media_type.startswith("audio/")
+                 and attachment.filename.startswith("voice-") else
+                 "photo" if attachment.media_type.startswith("image/") else
+                 "video" if attachment.media_type.startswith("video/") else "file"),
+        "url": f"/api/messenger/v2/groups/{message.group_id}/file/{attachment.id}",
+    }
+
+
 @router.get("/{group_id}/messages")
 def messages(group_id: str, before: int | None = None, db: Session = Depends(get_db),
              user: User = Depends(current_user)):
@@ -132,7 +151,8 @@ def messages(group_id: str, before: int | None = None, db: Session = Depends(get
     return {"items": [{"id": m.id, "mine": m.sender_id == user.id,
              "sender": users.get(m.sender_id, "Участник"), "body": "" if m.deleted_at else m.body,
              "deleted": bool(m.deleted_at), "created_at": m.created_at // 1000,
-             "reactions": [], "read_at": None, "edited_at": None, "attachment": None,
+             "reactions": [], "read_at": None, "edited_at": None,
+             "attachment": None if m.deleted_at else group_attachment_view(db,m),
              "reply_to": None} for m in reversed(rows)], "has_more": len(rows) == 80}
 
 
@@ -151,6 +171,53 @@ def send(group_id: str, data: GroupSend, request: Request,
     members = db.scalars(select(MessengerGroupMember).where(MessengerGroupMember.group_id == group_id)).all()
     inform(request, [m.user_id for m in members], "group.changed", group_id=group_id, sender_id=user.id)
     return {"id": message.id, "ok": True}
+
+
+@router.post("/{group_id}/send-file", status_code=201, dependencies=[Depends(csrf_protect)])
+async def send_group_file(group_id: str, request: Request, file: UploadFile = File(...),
+                          db: Session = Depends(get_db), user: User = Depends(current_user)):
+    enforce_origin(request)
+    membership(db, group_id, user.id)
+    validate_send_rate(user.id)
+    content = await file.read(MAX_UPLOAD + 1)
+    if not content or len(content) > MAX_UPLOAD:
+        raise HTTPException(413, "Файл слишком большой (максимум 20 МБ)")
+    mime = verified_upload_type(content, file.content_type or "")
+    if mime not in MEDIA_LIMITS:
+        raise HTTPException(415, "Поддерживаются фото, видео, аудио, PDF и ZIP")
+    if len(content) > MEDIA_LIMITS[mime]:
+        raise HTTPException(413, "Размер файла превышает лимит формата")
+    filename = (file.filename or "media").replace("\\", "/").split("/")[-1][:160]
+    message = MessengerGroupMessage(group_id=group_id, sender_id=user.id, body="",
+                                    created_at=time.time_ns() // 1_000_000)
+    db.add(message)
+    db.flush()
+    db.add(MessengerGroupAttachment(message_id=message.id, filename=filename,
+                                    media_type=mime, size=len(content), content=content))
+    db.commit()
+    members = db.scalars(select(MessengerGroupMember).where(
+        MessengerGroupMember.group_id == group_id)).all()
+    inform(request, [m.user_id for m in members], "group.changed",
+           group_id=group_id, sender_id=user.id)
+    return {"id": message.id, "attachment": group_attachment_view(db, message)}
+
+
+@router.get("/{group_id}/file/{attachment_id}")
+def group_file(group_id: str, attachment_id: str, db: Session = Depends(get_db),
+               user: User = Depends(current_user)):
+    membership(db, group_id, user.id)
+    attachment = db.get(MessengerGroupAttachment, attachment_id)
+    if attachment is None:
+        raise HTTPException(404, "Вложение не найдено")
+    message = db.get(MessengerGroupMessage, attachment.message_id)
+    if not message or message.group_id != group_id or message.deleted_at:
+        raise HTTPException(404, "Вложение не найдено")
+    return Response(attachment.content, media_type=attachment.media_type,
+                    headers={"Cache-Control": "private, no-store",
+                             "X-Content-Type-Options": "nosniff",
+                             "Content-Security-Policy": "default-src 'none'; sandbox",
+                             "Content-Disposition": ("inline" if attachment.media_type.startswith(
+                                 ("image/", "video/", "audio/")) else "attachment")})
 
 
 @router.post("/{group_id}/read", dependencies=[Depends(csrf_protect)])
