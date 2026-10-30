@@ -1317,12 +1317,39 @@ public final class NativeMessengerActivity extends Activity {
 
     private void loadSettings(int epoch){
         list.removeAllViews();pad(list,17,8,17,27);
+        // Prominent Telegram-style account card, with status resolved from the server.
+        LinearLayout accountHero=row();pad(accountHero,16,14,16,14);
+        accountHero.setBackground(shape(PANEL,24));
+        TextView accountAvatar=avatar(name(user),"direct");
+        accountHero.addView(accountAvatar,lp(58,58));
+        LinearLayout accountLabels=column();pad(accountLabels,14,1,0,0);
+        LinearLayout accountTitle=row();
+        accountTitle.addView(text(name(user),19,TEXT,true));
+        accountLabels.addView(accountTitle);
+        TextView accountSubtitle=text(user.optString("username","").isEmpty()
+                ?"Настроить профиль Vainah":"@"+user.optString("username"),13,MUTED,false);
+        accountLabels.addView(accountSubtitle);
+        accountHero.addView(accountLabels,new LinearLayout.LayoutParams(0,-2,1));
+        TextView accountArrow=text("›",30,MUTED,false);
+        accountHero.addView(accountArrow,lp(25,50));
+        accountHero.setClickable(true);
+        accountHero.setOnClickListener(v->showHome("profile"));
+        list.addView(accountHero,lp(-1,-2));space(list,15);
+        request("GET","/api/messenger/v2/verification/me",null,(badgeData,badgeError)->{
+            if(epoch!=generation || !tab.equals("settings"))return;
+            if(badgeError==null && badgeData.optBoolean("verified")){
+                accountTitle.addView(badge(),lp(21,21));
+                accountSubtitle.setText("✓ Проверено Vainah");
+            }
+        });
+        list.addView(text("СООБЩЕСТВА",11,MUTED,true));space(list,9);
         LinearLayout shortcuts=column();shortcuts.setBackground(shape(PANEL,24));
         list.addView(shortcuts,lp(-1,-2));
         sectionLink(shortcuts,"◉","Каналы","Мои каналы и подписки",()->showHome("channels"));
         sectionLink(shortcuts,"✦","Боты","Автоматические помощники",()->showHome("bots"));
         sectionLink(shortcuts,"◎","Контакты","Поиск людей по @username",()->showHome("contacts"));
         space(list,22);
+        list.addView(text("АККАУНТ И КОНФИДЕНЦИАЛЬНОСТЬ",11,MUTED,true));space(list,9);
         LinearLayout account=column();account.setBackground(shape(PANEL,24));
         list.addView(account,lp(-1,-2));
         sectionLink(account,"●","Аккаунт","Имя, @username и Vainah ID",()->showHome("profile"));
@@ -1332,7 +1359,7 @@ public final class NativeMessengerActivity extends Activity {
                 boolean approved=data.optBoolean("verified");
                 boolean owner=data.optBoolean("can_manage");
                 String status=approved?"Аккаунт подтверждён Vainah ✓":"Аккаунт пока не подтверждён";
-                if(owner)status+="\\nВы можете выдавать и отзывать галочки другим пользователям.";
+                if(owner)status+="\nВы можете выдавать и отзывать галочки другим пользователям.";
                 new AlertDialog.Builder(this).setTitle("Верификация Vainah")
                     .setMessage(status).setPositiveButton("Понятно",null).show();
             });
