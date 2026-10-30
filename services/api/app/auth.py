@@ -136,6 +136,24 @@ def list_sessions(user: User = Depends(current_user),
     ]}
 
 
+@router.post("/sessions/{session_id}/revoke", dependencies=[Depends(csrf_protect)])
+def revoke_session(session_id: str, request: Request,
+                   user: User = Depends(current_user),
+                   session: LoginSession = Depends(current_session),
+                   db: Session = Depends(get_db)):
+    """Revoke only a session owned by the caller, never the current session."""
+    enforce_origin(request)
+    if session_id == session.id:
+        raise HTTPException(409, "Use logout to end the current session")
+    target = db.scalar(select(LoginSession).where(
+        LoginSession.id == session_id, LoginSession.user_id == user.id))
+    if target is None:
+        raise HTTPException(404, "Session not found")
+    db.delete(target)
+    db.commit()
+    return {"ok": True}
+
+
 @router.post("/logout-others", dependencies=[Depends(csrf_protect)])
 def logout_others(request: Request, db: Session = Depends(get_db),
                   user: User = Depends(current_user), session: LoginSession = Depends(current_session)):
