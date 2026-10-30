@@ -50,7 +50,7 @@ public final class MainActivity extends Activity {
             if (!"https".equalsIgnoreCase(uri.getScheme())) return null;
             if (uri.getHost() == null || uri.getHost().isEmpty()) return null;
             if (uri.getUserInfo() != null || uri.getFragment() != null || uri.getQuery() != null) return null;
-            if (!uri.getPath().isEmpty()) return null;
+            if (uri.getPath() != null && !uri.getPath().isEmpty()) return null;
             return value;
         } catch (RuntimeException ignored) { return null; }
     }
