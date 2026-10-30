@@ -12,6 +12,7 @@ from sqlalchemy.orm import Mapped, Session, mapped_column
 
 from .database import Base, get_db
 from .models import User, uid, VerifiedAccount
+from .handles import find_by_username, username_for, blocked
 from .security import csrf_protect, current_user, enforce_origin
 
 router = APIRouter(prefix="/api/community", tags=["Messenger channels and bots"])
@@ -33,6 +34,18 @@ class ChannelMember(Base):
     channel_id: Mapped[str] = mapped_column(ForeignKey("messenger_channels.id", ondelete="CASCADE"), index=True)
     user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
 
+
+class ChannelInvitation(Base):
+    __tablename__ = "messenger_channel_invitations"
+    __table_args__ = (UniqueConstraint("channel_id", "user_id", name="uq_channel_invitation_target"),)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    channel_id: Mapped[str] = mapped_column(ForeignKey("messenger_channels.id", ondelete="CASCADE"), index=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    invited_by: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    created_at: Mapped[int] = mapped_column(Integer, default=lambda: int(time.time()))
+
+class ChannelInviteRequest(BaseModel):
+    username: str = Field(min_length=3, max_length=33)
 
 class ChannelPost(Base):
     __tablename__ = "messenger_channel_posts"
@@ -134,6 +147,78 @@ def unsubscribe(channel_id:str,request:Request,db:Session=Depends(get_db),user:U
     membership=db.scalar(select(ChannelMember).where(
         ChannelMember.channel_id==channel_id,ChannelMember.user_id==user.id))
     if membership:db.delete(membership);db.commit()
+    return {"ok":True}
+
+
+@router.get("/channels/invitations")
+def list_channel_invitations(db:Session=Depends(get_db),user:User=Depends(current_user)):
+    rows=db.scalars(select(ChannelInvitation).where(ChannelInvitation.user_id==user.id)
+                    .order_by(ChannelInvitation.created_at.desc()).limit(30)).all()
+    items=[]
+    for invite in rows:
+        channel=db.get(Channel,invite.channel_id)
+        if channel:
+            items.append({"id":invite.id,"channel_id":channel.id,"channel_name":channel.name,
+                          "invited_by":username_for(db,invite.invited_by)})
+    return {"items":items}
+
+
+@router.post("/channels/invitations/{invitation_id}/accept",dependencies=[Depends(csrf_protect)])
+def accept_channel_invitation(invitation_id:str,request:Request,db:Session=Depends(get_db),
+                              user:User=Depends(current_user)):
+    gate(request)
+    invitation=db.get(ChannelInvitation,invitation_id)
+    if not invitation or invitation.user_id!=user.id:
+        raise HTTPException(404,"Приглашение не найдено")
+    channel=require_channel(db,invitation.channel_id)
+    if not db.scalar(select(ChannelMember).where(ChannelMember.channel_id==channel.id,
+                                                ChannelMember.user_id==user.id)):
+        db.add(ChannelMember(channel_id=channel.id,user_id=user.id))
+    db.delete(invitation)
+    db.commit()
+    return {"ok":True,"channel_id":channel.id}
+
+
+@router.delete("/channels/invitations/{invitation_id}",dependencies=[Depends(csrf_protect)])
+def decline_channel_invitation(invitation_id:str,request:Request,db:Session=Depends(get_db),
+                               user:User=Depends(current_user)):
+    gate(request)
+    invitation=db.get(ChannelInvitation,invitation_id)
+    if not invitation or invitation.user_id!=user.id:
+        raise HTTPException(404,"Приглашение не найдено")
+    db.delete(invitation)
+    db.commit()
+    return {"ok":True}
+
+
+@router.post("/channels/{channel_id}/invite",dependencies=[Depends(csrf_protect)])
+def invite_to_channel(channel_id:str,data:ChannelInviteRequest,request:Request,
+                      db:Session=Depends(get_db),user:User=Depends(current_user)):
+    gate(request)
+    channel=require_channel(db,channel_id)
+    if channel.owner_id!=user.id:
+        raise HTTPException(403,"Приглашать в канал может только владелец")
+    target=find_by_username(db,data.username)
+    if not target or target.id==user.id:
+        raise HTTPException(404,"Пользователь не найден")
+    if blocked(db,user.id,target.id):
+        raise HTTPException(403,"Пользователь недоступен")
+    if db.scalar(select(ChannelMember).where(ChannelMember.channel_id==channel_id,
+                                             ChannelMember.user_id==target.id)):
+        raise HTTPException(409,"Пользователь уже подписан")
+    existing=db.scalar(select(ChannelInvitation).where(ChannelInvitation.channel_id==channel_id,
+                                                        ChannelInvitation.user_id==target.id))
+    if existing:
+        raise HTTPException(409,"Приглашение уже отправлено")
+    pending=db.scalar(select(func.count(ChannelInvitation.id)).where(
+        ChannelInvitation.invited_by==user.id)) or 0
+    if pending>=40:
+        raise HTTPException(429,"Лимит ожидающих приглашений достигнут")
+    db.add(ChannelInvitation(channel_id=channel_id,user_id=target.id,invited_by=user.id))
+    try: db.commit()
+    except Exception:
+        db.rollback()
+        raise HTTPException(409,"Приглашение уже создано")
     return {"ok":True}
 
 
