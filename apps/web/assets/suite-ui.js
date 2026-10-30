@@ -14,7 +14,7 @@ const appLabels = {
   photos: ['▧', 'Vainah Photos', 'Приватная галерея'],
   calendar: ['▦', 'Vainah Calendar', 'Ваши события и расписание']
 };
-let api, state, toast;
+let api, state, toast, openStandaloneChannel, openStandaloneBot;
 const E = (tag, className, text) => {
   const node = document.createElement(tag);
   if (className) node.className = className;
@@ -205,7 +205,7 @@ async function messenger(root) {
   add(stage,sidebar,area);
   root.append(stage);
   const status=E('p','vchat-footnote','Vainah Messenger · Ваши чаты. Ваш стиль.');root.append(status);
-  let chosen=null, chats=[], groups=[], busy=false, polling=false, lastSignature='', activeFilter='all';
+  let chosen=null, chats=[], groups=[], channels=[], bots=[], busy=false, polling=false, lastSignature='', activeFilter='all';
   let replyTarget=null, recorder=null, recordingStream=null, recordChunks=[];
   const isGroup=()=>chosen?.kind==='group';
   const active=()=>document.getElementById('feature-root').contains(stage)&&
@@ -287,7 +287,9 @@ async function messenger(root) {
     for(const [key,button] of Object.entries(filterButtons))button.classList.toggle('active',key===activeFilter);
     const direct=chats.map(c=>({...c,kind:'direct',name:c.display_name}));
     const allGroups=groups.map(g=>({...g,kind:'group',display_name:g.name,email:`${g.members} участников`,archived:false,pinned:false,muted:false}));
-    let visible=[...direct,...allGroups].filter(c=>{
+    const joinedChannels=channels.filter(c=>c.subscribed||c.owner).map(c=>({...c,kind:'channel',display_name:c.name,email:'Канал',preview:c.description||'Публикации канала',updated_at:0,unread:0}));
+    const availableBots=bots.map(b=>({...b,kind:'bot',display_name:b.name,email:'Бот',preview:b.description||'Автоматические ответы',updated_at:0,unread:0}));
+    let visible=[...direct,...allGroups,...joinedChannels,...availableBots].filter(c=>{
       if(activeFilter==='archived')return c.archived;
       if(c.archived)return false;
       if(activeFilter==='groups'&&c.kind!=='group')return false;
@@ -298,20 +300,41 @@ async function messenger(root) {
     visible.sort((a,b)=>Number(!!b.pinned)-Number(!!a.pinned)||b.updated_at-a.updated_at);
     if(!visible.length)contacts.append(empty(q?'Ничего не найдено.':'Здесь пока нет чатов. Создайте группу или найдите контакт.'));
     for(const c of visible){
-      const item=E('button',`vchat-contact ${chosen?.id===c.id&&chosen?.kind===c.kind?'active':''}`);item.type='button';
-      const avatar=E('span','vchat-avatar',c.kind==='group'?'👥':c.display_name.slice(0,1).toUpperCase());
+      const item=E('button',`vchat-contact vchat-contact-${c.kind} ${chosen?.id===c.id&&chosen?.kind===c.kind?'active':''}`);
+      item.type='button';
+      const avatar=E('span','vchat-avatar');
+      if(c.kind==='channel'||c.kind==='bot'){
+        const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+        const use=document.createElementNS('http://www.w3.org/2000/svg','use');
+        use.setAttribute('href',c.kind==='channel'?'#i-send':'#i-spark');
+        svg.setAttribute('aria-hidden','true');svg.append(use);avatar.append(svg);
+      }else avatar.textContent=c.kind==='group'?'👥':c.display_name.slice(0,1).toUpperCase();
       const main=E('span','vchat-contact-main');
-      const title=E('strong','',(c.pinned?'📌 ':'')+c.display_name+(c.muted?' 🔕':''));
+      const title=E('strong','',(c.pinned?'📌 ':'')+c.display_name);
       if(c.verified){const badge=E('span','vchat-verified','✓');badge.title='Проверено Vainah';badge.setAttribute('aria-label','Проверено Vainah');title.append(badge);}
-      add(main,title,E('small','',c.blocked?'Контакт заблокирован':c.preview||c.email));
-      add(item,avatar,main);
-      if(c.unread)item.append(E('span','vchat-count',String(Math.min(c.unread,99))));
-      item.addEventListener('click',()=>select(c));contacts.append(item);
+      if(c.muted){const muted=E('span','vchat-muted',' 🔕');title.append(muted);}
+      const preview=E('small','',c.blocked?'Контакт заблокирован':c.preview||c.email);
+      add(main,title,preview);
+      const side=E('span','vchat-contact-aside');
+      if(c.updated_at)side.append(E('time','vchat-contact-time',timeText(c.updated_at)));
+      else side.append(E('span','vchat-contact-label',c.kind==='channel'?'КАНАЛ':c.kind==='bot'?'БОТ':''));
+      if(c.unread)side.append(E('span','vchat-count',String(Math.min(c.unread,99))));
+      add(item,avatar,main,side);
+      item.addEventListener('click',()=>{
+        if(c.kind==='channel'){if(openStandaloneChannel)openStandaloneChannel(c);else toast('Канал доступен в разделе «Каналы»');}
+        else if(c.kind==='bot'){if(openStandaloneBot)openStandaloneBot(c);else toast('Боты доступны в разделе «Боты»');}
+        else select(c);
+      });
+      contacts.append(item);
     }
   }
   async function loadChats(){
-    const [direct,team]=await Promise.all([api('/api/messenger/v2/chats'),api('/api/messenger/v2/groups')]);
-    chats=direct.items;groups=team.items;renderChats();
+    const [direct,team,feed,helpers]=await Promise.all([
+      api('/api/messenger/v2/chats'),api('/api/messenger/v2/groups'),
+      api('/api/community/channels').catch(()=>({items:[]})),
+      api('/api/community/bots').catch(()=>({items:[]}))
+    ]);
+    chats=direct.items;groups=team.items;channels=feed.items;bots=helpers.items;renderChats();
   }
   async function loadThread(background=false){
     if(!chosen||busy)return;busy=true;
@@ -351,7 +374,7 @@ async function messenger(root) {
     face.textContent=contact.kind==='group'?'👥':contact.display_name.slice(0,1).toUpperCase();
     blockBtn.disabled=contact.kind==='group';blockBtn.classList.toggle('hidden',contact.kind==='group');
     searchInChat.disabled=false;prefs.disabled=false;callAudio.disabled=callVideo.disabled=contact.kind==='group'||!!contact.blocked;
-    stage.classList.add('thread-open');renderChats();
+    stage.classList.add('thread-open');document.getElementById('vm-workspace')?.classList.add('vm-chat-open');renderChats();
     try{await loadThread();}catch(e){errorHandler(e);}
     input.focus();
   }
@@ -450,7 +473,7 @@ async function messenger(root) {
       await loadChats();await loadThread();toast(blocked?'Контакт разблокирован':'Контакт заблокирован');
     }catch(e){errorHandler(e);}
   }
-  back.addEventListener('click',()=>stage.classList.remove('thread-open'));
+  back.addEventListener('click',()=>{stage.classList.remove('thread-open');document.getElementById('vm-workspace')?.classList.remove('vm-chat-open');});
   search.addEventListener('input',renderChats);
   find.addEventListener('submit',async e=>{
     e.preventDefault();try{const {contact}=await api('/api/messenger/contact?email='+encodeURIComponent(email.value.trim()));
@@ -577,6 +600,8 @@ async function mediaPanel(root, category){
 /** Mount only Messenger without the wider Ecosystem catalog or navigation. */
 export async function mountStandaloneMessenger(root, context) {
   ({ api, state, showToast: toast } = context);
+  openStandaloneChannel=context.openChannel;
+  openStandaloneBot=context.openBot;
   root.replaceChildren();
   await messenger(root);
 }
