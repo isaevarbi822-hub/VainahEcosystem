@@ -416,14 +416,14 @@ public final class NativeMessengerActivity extends Activity {
         LinearLayout results=list.findViewWithTag("chatResults");
         if(results==null)return;results.removeAllViews();
         int count=0;String match=query.trim().toLowerCase(Locale.ROOT);
+        String handleMatch=match.startsWith("@")?match.substring(1):match;
         for(int i=0;i<chats.length();i++){
             JSONObject c=chats.optJSONObject(i);if(c==null||c.optBoolean("archived")||(!chatFilter.equals("all")&&!chatFilter.equals("direct")))continue;
             if(!name(c).toLowerCase(Locale.ROOT).contains(match) &&
-               !c.optString("username").toLowerCase(Locale.ROOT).contains(match) &&
-               !c.optString("email").toLowerCase(Locale.ROOT).contains(match))continue;
+               !c.optString("username").toLowerCase(Locale.ROOT).contains(handleMatch))continue;
             count++;final JSONObject chosen=c;
             addConversation(results,name(c),c.optString("username").isEmpty() ?
-                    c.optString("preview",c.optString("email")) :
+                    c.optString("preview","Начните общение") :
                     "@"+c.optString("username")+" · "+c.optString("preview",""),
                     c.optInt("unread"),formatTime(c.optLong("updated_at")),c.optBoolean("verified"),"direct",
                     ()->openThread(chosen,false));
@@ -621,7 +621,7 @@ public final class NativeMessengerActivity extends Activity {
         generation++;reset();
         LinearLayout header=row();pad(header,10,9,15,9);root.addView(header,lp(-1,65));
         Button back=button("‹",false);back.setTextSize(30);back.setBackground(shape(BG,10));
-        header.addView(back,lp(48,47));back.setOnClickListener(v->showHome("chats"));
+        header.addView(back,lp(48,47));back.setOnClickListener(v->showHome(tab));
         TextView heading=text(title,19,TEXT,true);
         header.addView(heading,new LinearLayout.LayoutParams(0,-1,1));
         if(verified)header.addView(badge(),lp(19,19));
