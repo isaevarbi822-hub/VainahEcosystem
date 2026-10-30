@@ -1052,10 +1052,17 @@ public final class NativeMessengerActivity extends Activity {
         LinearLayout account=column();account.setBackground(shape(PANEL,24));
         list.addView(account,lp(-1,-2));
         sectionLink(account,"●","Аккаунт","Имя, @username и Vainah ID",()->showHome("profile"));
-        sectionLink(account,"♧","Конфиденциальность","Сеансы и безопасность переписки",()->{
-            new AlertDialog.Builder(this).setTitle("Конфиденциальность")
-                .setMessage("Сессия хранится в зашифрованном хранилище Android. Сообщения синхронизируются с сервером Vainah. Сквозного шифрования пока нет.")
-                .setPositiveButton("Понятно",null).show();
+        sectionLink(account,"♧","Защита сообщений","Проверить состояние серверного шифрования",()->{
+            request("GET","/api/messenger/v2/security-status",null,(data,error)->{
+                if(error!=null){notice("Не удалось проверить сервер: "+error);return;}
+                boolean encrypted=data.optBoolean("message_body_encryption_at_rest");
+                String message=encrypted?
+                    "Новые тексты сообщений шифруются на сервере с AES-256-GCM. Ранее сохранённые сообщения могут оставаться незашифрованными.":
+                    "Шифрование хранения текста новых сообщений не включено на этом сервере. Проверьте настройку Render.";
+                message+="\n\nЭто не сквозное шифрование (E2EE): сервер может расшифровать сообщения. Сессия на телефоне защищена Android Keystore.";
+                new AlertDialog.Builder(this).setTitle("Защита сообщений")
+                    .setMessage(message).setPositiveButton("Понятно",null).show();
+            });
         });
         sectionLink(account,"◷","Уведомления","Push-уведомления ещё в разработке",()->{
             new AlertDialog.Builder(this).setTitle("Уведомления")
@@ -1063,7 +1070,7 @@ public final class NativeMessengerActivity extends Activity {
                 .setPositiveButton("Понятно",null).show();
         });
         space(list,18);
-        list.addView(text("VAINAH MESSENGER  ·  0.9.4",12,MUTED,false));
+        list.addView(text("VAINAH MESSENGER  ·  0.9.7",12,MUTED,false));
     }
 
     private void loadContacts(int epoch){
