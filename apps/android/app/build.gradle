@@ -10,13 +10,16 @@ android {
         applicationId messengerVariant ? 'no.vainah.messenger' : 'no.vainah.ecosystem'
         minSdk 26
         targetSdk 35
-        versionCode 9
-        versionName '0.8.1'
+        versionCode 10
+        versionName '0.9.0'
         def siteUrl = (project.findProperty('VAINAH_BASE_URL') ?: 'http://127.0.0.1:8000').toString()
         if (!(siteUrl.startsWith('https://') || siteUrl == 'http://127.0.0.1:8000')) {
             throw new GradleException('Use HTTPS for production or the USB localhost developer URL')
         }
         buildConfigField 'String', 'VAINAH_BASE_URL', '"' + siteUrl + '"'
+        def googleClientId = (project.findProperty('VAINAH_GOOGLE_WEB_CLIENT_ID') ?: '').toString().trim()
+        buildConfigField 'boolean', 'VAINAH_NATIVE_MESSENGER', messengerVariant ? 'true' : 'false'
+        buildConfigField 'String', 'VAINAH_GOOGLE_WEB_CLIENT_ID', '"' + googleClientId.replace('\\', '\\\\').replace('"', '\\"') + '"'
         buildConfigField 'String', 'VAINAH_START_PATH', '"' + (messengerVariant ? '/app/messenger' : '/') + '"'
         manifestPlaceholders = [
             appLabel: messengerVariant ? 'Vainah Messenger' : 'Vainah Ecosystem',
@@ -29,4 +32,10 @@ android {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
     }
+}
+
+dependencies {
+    implementation 'androidx.credentials:credentials:1.6.0'
+    implementation 'androidx.credentials:credentials-play-services-auth:1.6.0'
+    implementation 'com.google.android.libraries.identity.googleid:googleid:1.2.1'
 }
