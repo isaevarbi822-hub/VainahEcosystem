@@ -1353,6 +1353,11 @@ public final class NativeMessengerActivity extends Activity {
         LinearLayout account=column();account.setBackground(shape(PANEL,24));
         list.addView(account,lp(-1,-2));
         sectionLink(account,"●","Аккаунт","Имя, @username и Vainah ID",()->showHome("profile"));
+        sectionLink(account,"◈","Оформление","Тема и анимации интерфейса",()->{
+            new AlertDialog.Builder(this).setTitle("Оформление Vainah")
+                .setMessage("Сейчас доступна тёмная тема Aurora. Светлая тема и дополнительные настройки оформления находятся в разработке. Системное отключение анимаций поддерживается.")
+                .setPositiveButton("Понятно",null).show();
+        });
         sectionLink(account,"✓","Верификация Vainah","Статус подтверждения аккаунта",()->{
             request("GET","/api/messenger/v2/verification/me",null,(data,error)->{
                 if(error!=null){notice(error);return;}
