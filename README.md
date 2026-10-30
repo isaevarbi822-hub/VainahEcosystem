@@ -1,10 +1,14 @@
-# Vainah Messenger 0.9.0 — Android native preview
+# Vainah Messenger — current Android build (0.10.1)
 
-**Android Messenger is no longer a WebView wrapper.** Its entry point is `NativeMessengerActivity`; it has a native dark chat list, email registration/login, Google Credential Manager, direct messaging, groups, channels, bots and settings. It uses a remote **API**, not an embedded website.
+This repository contains Vainah Messenger and the wider Vainah Ecosystem app suite. The Messenger Android package is a native app built around `NativeMessengerActivity`; the separate Ecosystem APK remains a WebView app. The Messenger connects to the deployed Vainah API over HTTPS.
 
-Required GitHub repository Variables: `VAINAH_BASE_URL` and `VAINAH_GOOGLE_WEB_CLIENT_ID`. Required for stable Google OAuth: four GitHub **Secrets** for the Android signing keystore and passwords. Details: [Android native setup](apps/android/NATIVE-MESSENGER-SETUP.md).
+The current Android source includes direct and group chats, attachments, voice messages, short video notes, and media previews. Device-specific camera, playback, and sign-in behavior still requires real-device testing. The server may encrypt message bodies at rest when configured, but that is **not end-to-end encryption**; attachments are not covered by that setting. Android background push and background calls are not implemented.
 
-**Build publication is deliberately blocked until configuration is complete.** Compiling Java is not proof that remote Google sign-in or device networking work. `Vainah Ecosystem` and Windows clients remain separately maintained; do not confuse them with the native Messenger APK. No full E2EE, push notifications, Android video calls or media uploads in 0.9.0.
+## Current build instructions
+
+Use the existing repository and the GitHub Actions workflow documented in [MESSENGER-BUILD.md](MESSENGER-BUILD.md). Android configuration and signing setup are documented in [apps/android/NATIVE-MESSENGER-SETUP.md](apps/android/NATIVE-MESSENGER-SETUP.md). For current Messenger builds, use the linked workflow guide; the 0.7–0.8 sections below are historical.
+
+ > The older 0.7–0.8 sections below are retained as release history. Their version numbers, limitations, and commands are historical, not the current build guide.
 
 ---
 
@@ -123,15 +127,9 @@ Open http://127.0.0.1:8000, register and explore. Windows desktop uses your loca
 
 **Limitations:** This is still NOT a public identity service: no email verification or password recovery, no end-to-end encrypted messaging, no distributed abuse limiter or external media storage; automatic schema creation is not a migration framework. Database-backed media consumes Neon database storage, so do not upload a large library. A separate object store and security review are needed for a real release.
 
-## Android project (not an APK)
+## Android packages
 
-Open `apps/android` in Android Studio, install SDK/API 36, sync Gradle and build the debug APK from **Build → Build Bundle(s)/APK(s) → Build APK(s)**. Android's file chooser supports photo and music upload. Debug setup through USB:
-
-```powershell
-adb reverse tcp:8000 tcp:8000
-```
-
-Run the Windows/local API before connecting. Android's default development URL is `http://127.0.0.1:8000`, bridged through USB; it does **not** automatically expose your PC to the Internet. For production, change `VAINAH_BASE_URL` to your own working HTTPS server **only after** implementing the production-security checklist. Gradle wrapper binary JAR is not included; see `apps/android/README.md`.
+The repository builds two separate APKs: the native Vainah Messenger and the older WebView-based Vainah Ecosystem app. The Messenger APK requires a reachable HTTPS API; it does not serve the backend itself. For current workflow artifact names and setup requirements, see [MESSENGER-BUILD.md](MESSENGER-BUILD.md) and [native Android setup](apps/android/NATIVE-MESSENGER-SETUP.md). A successful CI build does not replace sign-in, camera, media, or network testing on a physical device.
 
 ## Eleven separately installable PWA entry points
 
@@ -177,19 +175,8 @@ services/api/app/
 services/api/tests/          # API integration tests
 ```
 
-## GitHub
+## GitHub repository
 
-Create a **new private** repository called `vainah-ecosystem`, then from the extracted directory:
-
-```bash
-git init
-git add .
-git commit -m "feat: Vainah Ecosystem 0.7.0 private-beta improvements"
-git branch -M main
-git remote add origin https://github.com/YOUR_USERNAME/vainah-ecosystem.git
-git push -u origin main
-```
-
-Replace `YOUR_USERNAME`. The `data/` directory and `.env` are excluded from Git. VainahVPN and other existing GitHub repositories are not modified.
+This project already lives in the [VainahEcosystem repository](https://github.com/isaevarbi822-hub/VainahEcosystem). Continue in this repository; do not create a replacement repository or upload a ZIP. Keep local databases, `.env` files, signing keys, and credentials out of Git. For current build instructions, see [MESSENGER-BUILD.md](MESSENGER-BUILD.md).
 
 **IMPORTANT:** Do not publicly deploy prototype identity/messaging and do not invite real users until you have email verification, password recovery, abuse protection, moderation/blocking, encrypted backups, migrations, privacy review and security audit. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).

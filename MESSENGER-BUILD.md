@@ -1,16 +1,27 @@
-# Vainah Messenger 0.7.0 — Windows and Android builds
+# Build Vainah Messenger — current workflow
 
-The source code ships with a GitHub Actions build pipeline. It creates two independent **debug** Android packages and two **unsigned** Windows EXE files.
+Build from the existing [VainahEcosystem repository](https://github.com/isaevarbi822-hub/VainahEcosystem). Do not upload a ZIP or create a replacement repository.
 
-1. Upload the contents of the complete 0.7.0 ZIP to your **VainahEcosystem** GitHub repository, preserving the folders. Do not upload `data/`, `.env`, test caches, databases or secrets.
-2. In GitHub → Settings → Secrets and variables → Actions → **Variables**, set `VAINAH_BASE_URL` to the exact HTTPS base URL of the Vainah server on Render, without a path (only after you have a working backend).
-3. In GitHub → Actions → `Build Vainah EXE and APK` → **Run workflow**. Wait for both jobs to complete successfully.
-4. Download the artifacts `Vainah-Windows-v0.7.0` and `Vainah-Android-v0.7.0` from that run. Extract the ZIPs: `Vainah-Messenger.exe` and `Vainah-Ecosystem.exe` from Windows; `Vainah-Messenger-v0.7.0-debug.apk` and `Vainah-Ecosystem-v0.7.0-debug.apk` from Android.
+## Configure Android builds
 
-**Warning:** No EXE/APK is contained in this source ZIP. Windows executable is unsigned and Android APK is a debug build. Windows EXE uses a local SQLite database by default: configure `%LOCALAPPDATA%/Vainah/Ecosystem/server-url.txt` with your HTTPS Render URL to use shared accounts; Android APK uses the `VAINAH_BASE_URL` build setting. Not yet suitable for public release.
+In **GitHub → Settings → Secrets and variables → Actions**, configure:
 
-Voice recording is experimental. Windows browser/WebView and Android have different microphone permission systems; verify on each device. Group chat is text-only, no E2EE, no calling and no push notifications.
+- Variables: `VAINAH_BASE_URL` (the HTTPS origin of the deployed API) and `VAINAH_GOOGLE_WEB_CLIENT_ID`.
+- Secrets: `VAINAH_ANDROID_SIGNING_KEYSTORE_BASE64`, `VAINAH_ANDROID_SIGNING_STORE_PASSWORD`, `VAINAH_ANDROID_SIGNING_KEY_ALIAS`, and `VAINAH_ANDROID_SIGNING_KEY_PASSWORD`.
 
-## Realtime and calling (0.7.0)
+See [native Android setup](apps/android/NATIVE-MESSENGER-SETUP.md) for generating and protecting a persistent signing key. Keep the keystore and all secret values out of the repository and chat.
 
-Serve the main FastAPI app with **one** worker (the current `render.yaml` does this). Browser receives same-origin `wss://YOUR_RENDER_HOST/api/messenger/v2/live`; WebRTC signalling stays in the same connection. Do not use VAINAH_BASE_URL as a secret. `APP_ORIGIN=https://YOUR_RENDER_HOST` must match exactly. Media requires HTTPS/camera and microphone permissions. No TURN, no Web Push and no calls in the background. For production use audited authentication, monitoring, TURN and distributed pub/sub.
+## Start a build
+
+1. Open **Actions → Build Vainah EXE and APK**.
+2. Select **Run workflow**, or push a change to one of the paths monitored by the workflow.
+3. Wait for all required jobs to finish successfully before distributing any artifact.
+
+## Artifact names in the current workflow
+
+- Windows: `Vainah-Windows-v0.9.0`, containing `Vainah-Messenger.exe` and `Vainah-Ecosystem.exe`. The Windows artifact label is still set to `v0.9.0` in the workflow and is not a source-version guarantee.
+- Android: `Vainah-Android-v0.10.1`, containing `Vainah-Messenger-v0.10.1-debug.apk` and `Vainah-Ecosystem-v0.10.1-debug.apk`.
+
+The Messenger Android package is native; the separate Ecosystem APK remains a WebView app. Android publication is blocked when the required configuration is absent, even if Java compilation itself succeeds. After a failure, download `Vainah-Android-build-diagnostics` and inspect `android-ci-logs/messenger.log` or `ecosystem.log`.
+
+The server/API must be updated and reachable at the configured HTTPS origin. CI success does not establish real-device login, network, camera, audio, or video behavior. Both Android artifacts are debug builds and the Windows EXEs are unsigned; this workflow does not create a production-signed release.

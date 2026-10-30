@@ -1,4 +1,4 @@
-# Vainah Android — два приложения, версия 0.9.0
+# Vainah Android — два приложения, версия 0.10.1
 
 ## Vainah Messenger (новая нативная версия)
 
