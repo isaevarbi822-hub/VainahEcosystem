@@ -49,7 +49,7 @@ def test_native_messenger_091_groups_and_safe_navigation():
     assert 'if(threadEpoch!=generation)return;' in native
     assert "stickToBottom" in native
     assert 'inDetail' in native
-    assert "versionName '0.9.4'" in gradle
+    assert "versionName '0.9.5'" in gradle
 
 
 def test_native_092_usernames_and_invites():
@@ -76,4 +76,17 @@ def test_native_messenger_094_permanent_numeric_id():
     assert 'ClipData.newPlainText("Vainah ID",number)' in native
     assert '"/api/people/id/"' in native
     gradle = (ANDROID / "build.gradle").read_text(encoding="utf-8")
-    assert "versionName '0.9.4'" in gradle
+    assert "versionName '0.9.5'" in gradle
+
+def test_native_messenger_095_reliability_and_controls():
+    native = (SOURCE / "NativeMessengerActivity.java").read_text(encoding="utf-8")
+    network = (SOURCE / "NativeApi.java").read_text(encoding="utf-8")
+    for marker in ("chatRefreshInProgress", "refreshRunning[0]",
+                   "if(signature.equals(lastRendered[0]))return;",
+                   "if(input.getText().toString().trim().equals(body))input.setText(\"\");",
+                   "showChatOptions(contact,group)",
+                   "/api/messenger/v2/preferences/",
+                   "if(error!=null && !api.hasSession()",
+                   "isOwner?\"Удалить группу\":\"Покинуть группу\""):
+        assert marker in native, marker
+    assert 'pair.startsWith("vainah_session=")' in network
