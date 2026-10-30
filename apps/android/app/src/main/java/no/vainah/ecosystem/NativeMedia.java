@@ -1,0 +1,366 @@
+package no.vainah.ecosystem;
+
+import android.Manifest;
+import android.app.Activity;
+import android.app.AlertDialog;
+import android.content.ActivityNotFoundException;
+import android.content.ClipData;
+import android.content.ContentValues;
+import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.database.Cursor;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.Outline;
+import android.graphics.SurfaceTexture;
+import android.media.MediaPlayer;
+import android.media.MediaRecorder;
+import android.net.Uri;
+import android.os.Build;
+import android.os.SystemClock;
+import android.provider.MediaStore;
+import android.provider.OpenableColumns;
+import android.view.Gravity;
+import android.view.Surface;
+import android.view.TextureView;
+import android.view.View;
+import android.view.ViewOutlineProvider;
+import android.widget.Button;
+import android.widget.FrameLayout;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
+import android.widget.MediaController;
+import android.widget.TextView;
+import android.widget.Toast;
+import android.widget.VideoView;
+
+import androidx.core.content.FileProvider;
+
+import org.json.JSONObject;
+
+import java.io.File;
+import java.util.UUID;
+
+/**
+ * Native Android media composer. Every photo/video/audio/doc uses authenticated
+ * /send-file; capture files are private cache, never public URLs.
+ * Video notes are short camera videos rendered inside a round-cropped player.
+ */
+public final class NativeMedia {
+    public interface Listener {
+        void onSent(String target, String error);
+        void onRecording(boolean recording);
+    }
+    public static final int REQUEST_PICK = 8120;
+    public static final int REQUEST_VIDEO_NOTE = 8121;
+    public static final int REQUEST_MIC = 8122;
+    private final Activity activity;
+    private final NativeApi api;
+    private final Listener listener;
+    private String contactId = "";
+    private File captureFile;
+    private String captureContact = "";
+    private MediaRecorder recorder;
+    private File voiceFile;
+    private String voiceContact;
+    private long startedAt;
+    private static final long MAX_FILE=20L * 1024 * 1024;
+
+    public NativeMedia(Activity activity, NativeApi api, Listener listener) {
+        this.activity=activity;
+        this.api=api;
+        this.listener=listener;
+    }
+
+    public void setContact(String target) { contactId=target==null?"":target; }
+    public void clearContact(){contactId="";}
+
+    private void toast(String message){
+        Toast.makeText(activity,message,Toast.LENGTH_LONG).show();
+    }
+
+    public void pickFile(){
+        if(contactId.isEmpty()){toast("Откройте личную переписку");return;}
+        Intent picker=new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        picker.setType("*/*");
+        picker.addCategory(Intent.CATEGORY_OPENABLE);
+        picker.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        picker.putExtra(Intent.EXTRA_ALLOW_MULTIPLE,true);
+        try{activity.startActivityForResult(picker,REQUEST_PICK);}
+        catch(ActivityNotFoundException ex){toast("Системный выбор файлов недоступен");}
+    }
+
+    public void captureRoundVideo(){
+        if(contactId.isEmpty()){toast("Откройте личную переписку");return;}
+        try {
+            captureFile=File.createTempFile("video-note-"+UUID.randomUUID()+"-",".mp4",activity.getCacheDir());
+            captureContact=contactId;
+            Uri output=FileProvider.getUriForFile(activity,
+                    activity.getPackageName()+".media",captureFile);
+            Intent camera=new Intent(MediaStore.ACTION_VIDEO_CAPTURE);
+            camera.putExtra(MediaStore.EXTRA_DURATION_LIMIT,15);
+            camera.putExtra(MediaStore.EXTRA_VIDEO_QUALITY,0);
+            camera.putExtra(MediaStore.EXTRA_OUTPUT,output);
+            camera.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION|Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+            camera.setClipData(ClipData.newRawUri("Vainah video note",output));
+            activity.startActivityForResult(camera,REQUEST_VIDEO_NOTE);
+        }catch(Exception ex){toast("Не удалось открыть камеру для кружка");}
+    }
+
+    public void toggleVoice(){
+        if(recorder!=null){stopVoice(true);return;}
+        if(contactId.isEmpty()){toast("Откройте личную переписку");return;}
+        if(Build.VERSION.SDK_INT>=23 &&
+                activity.checkSelfPermission(Manifest.permission.RECORD_AUDIO)!=PackageManager.PERMISSION_GRANTED){
+            activity.requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO},REQUEST_MIC);
+            return;
+        }
+        startVoice();
+    }
+
+    public void permissionResult(int code,int[] grants){
+        if(code==REQUEST_MIC){
+            if(grants.length>0 && grants[0]==PackageManager.PERMISSION_GRANTED)startVoice();
+            else toast("Для голосовых сообщений нужен доступ к микрофону");
+        }
+    }
+
+    private void startVoice(){
+        try {
+            voiceContact=contactId;
+            voiceFile=File.createTempFile("voice-"+UUID.randomUUID()+"-",".m4a",activity.getCacheDir());
+            recorder=new MediaRecorder();
+            recorder.setAudioSource(MediaRecorder.AudioSource.MIC);
+            recorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
+            recorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
+            recorder.setAudioEncodingBitRate(64000);
+            recorder.setAudioSamplingRate(44100);
+            recorder.setOutputFile(voiceFile.getAbsolutePath());
+            recorder.prepare();
+            recorder.start();
+            startedAt=SystemClock.elapsedRealtime();
+            listener.onRecording(true);
+        }catch(Exception ex){
+            releaseRecorder();
+            if(voiceFile!=null)voiceFile.delete();
+            toast("Не удалось начать запись голоса");
+            listener.onRecording(false);
+        }
+    }
+
+    public void stopVoice(boolean send){
+        if(recorder==null)return;
+        boolean valid=true;
+        try{recorder.stop();}catch(RuntimeException ex){valid=false;}
+        releaseRecorder();
+        listener.onRecording(false);
+        if(!valid || !send || voiceFile==null || voiceFile.length()<1000 ||
+                SystemClock.elapsedRealtime()-startedAt<650){
+            if(voiceFile!=null)voiceFile.delete();
+            if(send)toast("Запись слишком короткая. Попробуйте ещё раз.");
+            voiceFile=null;
+            return;
+        }
+        File finished=voiceFile;
+        voiceFile=null;
+        String target=voiceContact;
+        Uri uri=FileProvider.getUriForFile(activity,activity.getPackageName()+".media",finished);
+        sendUri(target,uri,finished.getName(),"audio/mp4",finished);
+    }
+
+    private void releaseRecorder(){
+        if(recorder!=null){
+            try{recorder.reset();recorder.release();}catch(Exception ignored){}
+            recorder=null;
+        }
+    }
+
+    public void cancelRecording(){stopVoice(false);}
+
+    private String displayName(Uri uri){
+        try(Cursor cursor=activity.getContentResolver().query(uri,
+                new String[]{OpenableColumns.DISPLAY_NAME},null,null,null)){
+            if(cursor!=null && cursor.moveToFirst())return cursor.getString(0);
+        }catch(Exception ignored){}
+        return "media-"+UUID.randomUUID();
+    }
+
+    private void sendUri(String target,Uri uri,String filename,String mime,File temp){
+        if(target==null || target.isEmpty()){if(temp!=null)temp.delete();return;}
+        api.uploadAttachment(target,uri,filename,mime,(response,error)->{
+            if(temp!=null)temp.delete();
+            listener.onSent(target,error);
+        });
+    }
+
+    public void activityResult(int requestCode,int resultCode,Intent data){
+        if(requestCode==REQUEST_VIDEO_NOTE){
+            File output=captureFile;
+            String target=captureContact;
+            captureFile=null;captureContact="";
+            if(resultCode!=Activity.RESULT_OK){
+                if(output!=null)output.delete();
+                return;
+            }
+            if(output!=null && output.length()>1500){
+                Uri uri=FileProvider.getUriForFile(activity,
+                        activity.getPackageName()+".media",output);
+                sendUri(target,uri,output.getName(),"video/mp4",output);
+            }else {
+                if(output!=null)output.delete();
+                Uri uri=data!=null?data.getData():null;
+                if(uri!=null)sendUri(target,uri,"video-note-"+UUID.randomUUID()+".mp4","video/mp4",null);
+                else toast("Камера не сохранила видеокружок");
+            }
+        }else if(requestCode==REQUEST_PICK && resultCode==Activity.RESULT_OK && data!=null){
+            String target=contactId;
+            java.util.ArrayList<Uri> chosen=new java.util.ArrayList<>();
+            if(data.getClipData()!=null){
+                ClipData clip=data.getClipData();
+                for(int i=0;i<Math.min(clip.getItemCount(),5);i++)
+                    chosen.add(clip.getItemAt(i).getUri());
+            }else if(data.getData()!=null)chosen.add(data.getData());
+            for(Uri uri:chosen){
+                String mime=activity.getContentResolver().getType(uri);
+                if(mime==null)mime="application/octet-stream";
+                sendUri(target,uri,displayName(uri),mime,null);
+            }
+            if(chosen.size()>0)toast("Отправка: "+chosen.size()+" файл(ов)");
+        }
+    }
+
+    public void openAttachment(JSONObject attachment){
+        String path=attachment.optString("url","");
+        String mime=attachment.optString("type","application/octet-stream");
+        String kind=attachment.optString("kind","file");
+        if(!path.startsWith("/api/messenger/v2/file/")){toast("Некорректное вложение");return;}
+        toast("Загрузка медиа…");
+        api.fetchAttachment(path,(file,error)->{
+            if(error!=null){toast(error);return;}
+            if(file==null)return;
+            try{
+                if(mime.startsWith("image/"))imageDialog(file);
+                else if(mime.startsWith("audio/"))audioDialog(file,kind);
+                else if(mime.startsWith("video/"))videoDialog(file,kind.equals("video_note"));
+                else openExternal(file,mime);
+            }catch(Exception ex){file.delete();toast("Не удалось открыть медиа");}
+        });
+    }
+
+    private void imageDialog(File file){
+        BitmapFactory.Options options=new BitmapFactory.Options();
+        options.inJustDecodeBounds=true;
+        BitmapFactory.decodeFile(file.getAbsolutePath(),options);
+        options.inSampleSize=1;
+        while(options.outWidth/options.inSampleSize>1600 ||
+              options.outHeight/options.inSampleSize>1600)options.inSampleSize*=2;
+        options.inJustDecodeBounds=false;
+        Bitmap bitmap=BitmapFactory.decodeFile(file.getAbsolutePath(),options);
+        if(bitmap==null){file.delete();toast("Повреждённое изображение");return;}
+        ImageView view=new ImageView(activity);
+        view.setImageBitmap(bitmap);
+        view.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        int padding=(int)(16*activity.getResources().getDisplayMetrics().density);
+        view.setPadding(padding,padding,padding,padding);
+        AlertDialog dialog=new AlertDialog.Builder(activity)
+                .setTitle("Фотография")
+                .setView(view)
+                .setPositiveButton("Закрыть",null).create();
+        dialog.setOnDismissListener(d->{bitmap.recycle();file.delete();});
+        dialog.show();
+    }
+
+    private void audioDialog(File file,String kind)throws Exception{
+        MediaPlayer player=new MediaPlayer();
+        player.setDataSource(file.getAbsolutePath());
+        player.prepare();
+        LinearLayout panel=new LinearLayout(activity);panel.setOrientation(1);
+        int padding=(int)(18*activity.getResources().getDisplayMetrics().density);
+        panel.setPadding(padding,padding,padding,padding);
+        TextView label=new TextView(activity);
+        label.setText(kind.equals("voice")?"🎤 Голосовое сообщение":"♫ Аудиофайл");
+        label.setTextSize(19);panel.addView(label);
+        Button play=new Button(activity);play.setText("▶ Воспроизвести");
+        panel.addView(play);
+        play.setOnClickListener(v->{
+            if(player.isPlaying()){player.pause();play.setText("▶ Продолжить");}
+            else {player.start();play.setText("⏸ Пауза");}
+        });
+        player.setOnCompletionListener(mp->play.setText("▶ Повторить"));
+        AlertDialog dialog=new AlertDialog.Builder(activity).setTitle("Vainah Audio")
+                .setView(panel).setNegativeButton("Закрыть",null).create();
+        dialog.setOnDismissListener(d->{player.release();file.delete();});
+        dialog.show();
+    }
+
+    private void videoDialog(File file,boolean round){
+        if(!round){
+            VideoView video=new VideoView(activity);
+            video.setVideoPath(file.getAbsolutePath());
+            video.setMediaController(new MediaController(activity));
+            AlertDialog dialog=new AlertDialog.Builder(activity)
+                    .setTitle("Видео").setView(video)
+                    .setPositiveButton("Закрыть",null).create();
+            video.setOnPreparedListener(mp->{mp.setLooping(false);video.start();});
+            dialog.setOnDismissListener(d->{video.stopPlayback();file.delete();});
+            dialog.show();
+            return;
+        }
+        int width=(int)(280*activity.getResources().getDisplayMetrics().density);
+        FrameLayout frame=new FrameLayout(activity);
+        TextureView texture=new TextureView(activity);
+        FrameLayout.LayoutParams params=new FrameLayout.LayoutParams(width,width,Gravity.CENTER);
+        frame.addView(texture,params);
+        texture.setOutlineProvider(new ViewOutlineProvider(){
+            @Override public void getOutline(View v,Outline outline){
+                outline.setOval(0,0,v.getWidth(),v.getHeight());
+            }
+        });
+        texture.setClipToOutline(true);
+        MediaPlayer[] player={null};
+        AlertDialog dialog=new AlertDialog.Builder(activity).setTitle("Видеокружок")
+                .setView(frame).setPositiveButton("Закрыть",null).create();
+        texture.setSurfaceTextureListener(new TextureView.SurfaceTextureListener(){
+            @Override public void onSurfaceTextureAvailable(SurfaceTexture surface,int w,int h){
+                try{
+                    MediaPlayer mp=new MediaPlayer();
+                    player[0]=mp;
+                    mp.setDataSource(file.getAbsolutePath());
+                    Surface output=new Surface(surface);
+                    mp.setSurface(output);output.release();
+                    mp.setLooping(true);
+                    mp.setOnPreparedListener(MediaPlayer::start);
+                    mp.prepareAsync();
+                }catch(Exception e){toast("Видеокружок не воспроизводится");}
+            }
+            @Override public void onSurfaceTextureSizeChanged(SurfaceTexture surface,int w,int h){}
+            @Override public boolean onSurfaceTextureDestroyed(SurfaceTexture surface){
+                if(player[0]!=null){player[0].release();player[0]=null;}
+                return true;
+            }
+            @Override public void onSurfaceTextureUpdated(SurfaceTexture surface){}
+        });
+        dialog.setOnDismissListener(d->{
+            if(player[0]!=null){player[0].release();player[0]=null;}
+            file.delete();
+        });
+        dialog.show();
+    }
+
+    private void openExternal(File file,String mime){
+        try{
+            Uri share=FileProvider.getUriForFile(activity,activity.getPackageName()+".media",file);
+            Intent open=new Intent(Intent.ACTION_VIEW);
+            open.setDataAndType(share,mime);
+            open.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            activity.startActivity(Intent.createChooser(open,"Открыть вложение"));
+        }catch(ActivityNotFoundException ex){
+            file.delete();
+            toast("Нет приложения, которое открывает этот формат");
+        }
+    }
+
+    public void close(){
+        cancelRecording();
+    }
+}
