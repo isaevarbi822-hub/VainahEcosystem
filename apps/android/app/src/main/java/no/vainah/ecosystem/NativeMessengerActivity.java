@@ -1037,6 +1037,14 @@ public final class NativeMessengerActivity extends Activity {
         bubble.setBackground(shape(mine?0xff295c9b:0xff26364c,19));
         LinearLayout.LayoutParams cell=lp(-2,-2);cell.setMargins(0,dp(5),0,dp(5));
         line.addView(bubble,cell);panel.addView(line,lp(-1,-2));
+        // Animate only the newest message, not every item during history refresh.
+        if(panel.getChildCount()==1 && android.os.Build.VERSION.SDK_INT>=26
+                && android.animation.ValueAnimator.areAnimatorsEnabled()){
+            line.setAlpha(0f);
+            line.setTranslationY(dp(7));
+            line.animate().alpha(1f).translationY(0f).setDuration(170)
+                    .setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
+        }
         if(!timestamp.isEmpty()){
             TextView label=text(mine ? timestamp+(deleted?"":"  "+(read?"✓✓":"✓")) : timestamp,10,
                     read&&mine?BLUE:MUTED,false);
