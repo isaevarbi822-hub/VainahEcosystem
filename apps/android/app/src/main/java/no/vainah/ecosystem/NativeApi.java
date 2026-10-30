@@ -222,6 +222,7 @@ public final class NativeApi {
                 conn.setRequestProperty("Cookie",cookie);
                 conn.setRequestProperty("X-CSRF-Token",csrf);
                 conn.setRequestProperty("Content-Type","multipart/form-data; boundary="+boundary);
+                conn.setRequestProperty("X-Upload-Id", java.util.UUID.randomUUID().toString());
                 try(OutputStream out=conn.getOutputStream();
                     InputStream input=activity.getContentResolver().openInputStream(uri)){
                     if(input==null)throw new IllegalArgumentException("Невозможно прочитать файл");
