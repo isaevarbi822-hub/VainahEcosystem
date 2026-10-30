@@ -69,7 +69,10 @@ def test_verified_badge_admin_only(tmp_path, monkeypatch):
         route="/api/messenger/v2/verification/manage"
         assert user.post(route,json={"user_id":user_id,"verified":True},
                          headers=user_headers).status_code==403
-        monkeypatch.setenv("VAINAH_VERIFICATION_ADMIN_IDS",admin_id)
+        monkeypatch.setenv("VAINAH_VERIFICATION_ADMIN_IDS",user_id)
+        monkeypatch.setenv("VAINAH_OWNER_USER_ID",admin_id)
+        assert admin.get("/api/messenger/v2/verification/me").json()["verified"] is True
+        assert admin.get("/api/messenger/v2/verification/me").json()["can_manage"] is True
         assert admin.post(route,json={"user_id":user_id,"verified":True},
                           headers=admin_headers).status_code==200
         assert user.get("/api/messenger/v2/verification/me").json()["verified"] is True
