@@ -8,7 +8,7 @@ The current Android source includes direct and group chats, attachments, voice m
 
 Use the existing repository and the GitHub Actions workflow documented in [MESSENGER-BUILD.md](MESSENGER-BUILD.md). Android configuration and signing setup are documented in [apps/android/NATIVE-MESSENGER-SETUP.md](apps/android/NATIVE-MESSENGER-SETUP.md). For current Messenger builds, use the linked workflow guide; the 0.7–0.8 sections below are historical.
 
- > The older 0.7–0.8 sections below are retained as release history. Their version numbers, limitations, and commands are historical, not the current build guide.
+> The older 0.7–0.8 sections below are retained as release history. Their version numbers, limitations, and commands are historical, not the current build guide.
 
 ---
 
