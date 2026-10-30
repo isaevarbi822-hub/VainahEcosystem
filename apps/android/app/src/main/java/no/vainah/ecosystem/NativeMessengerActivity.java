@@ -554,11 +554,6 @@ public final class NativeMessengerActivity extends Activity {
     private TextView badge(){
         TextView badge=text("✓",12,TEXT,true);badge.setGravity(Gravity.CENTER);
         badge.setBackground(shape(BLUE,30));
-        if(android.animation.ValueAnimator.areAnimatorsEnabled()){
-            Animation pulse=new AlphaAnimation(1f,.72f);
-            pulse.setDuration(1450);pulse.setRepeatMode(Animation.REVERSE);
-            pulse.setRepeatCount(Animation.INFINITE);badge.startAnimation(pulse);
-        }
         return badge;
     }
 
@@ -720,6 +715,9 @@ public final class NativeMessengerActivity extends Activity {
         if(root.getChildCount()>1 && root.getChildAt(1) instanceof TextView)
             currentThreadSubtitle=(TextView)root.getChildAt(1);
         LinearLayout threadHeader=(LinearLayout)root.getChildAt(0);
+        TextView threadAvatar=avatar(name(contact),group?"group":"direct");
+        LinearLayout.LayoutParams avatarParams=lp(42,42);avatarParams.rightMargin=dp(9);
+        threadHeader.addView(threadAvatar,1,avatarParams);
         Button options=button("⋮",false);
         options.setTextSize(26);options.setBackground(shape(BG,12));
         threadHeader.addView(options,lp(46,46));
@@ -727,7 +725,7 @@ public final class NativeMessengerActivity extends Activity {
         if(!group){
             Button searchMessages=button("⌕",false);
             searchMessages.setTextSize(23);searchMessages.setBackground(shape(BG,12));
-            threadHeader.addView(searchMessages,1,lp(44,46));
+            threadHeader.addView(searchMessages,threadHeader.getChildCount()-1,lp(44,46));
             searchMessages.setOnClickListener(v->searchInsideChat(id));
         }
         if(group && user.optString("id").equals(contact.optString("owner_id"))){
@@ -872,10 +870,35 @@ public final class NativeMessengerActivity extends Activity {
                             if(!group)showMessageActions(message,false,input,replyingTo,replyingBanner,liveThreadRefresh);
                         });
                     }
+                    final boolean[] swipedToReply={false};
                     if(attachment!=null && !message.optBoolean("deleted")){
                         JSONObject fileAttachment=attachment;
                         bubble.setOnClickListener(v->{
+                            if(swipedToReply[0]){swipedToReply[0]=false;return;}
                             if(media!=null)media.openAttachment(fileAttachment);
+                        });
+                    }
+                    if(!group && !message.optBoolean("deleted")){
+                        final float[] swipeStart={0,0};
+                        bubble.setOnTouchListener((v,event)->{
+                            switch(event.getActionMasked()){
+                                case android.view.MotionEvent.ACTION_DOWN:
+                                    swipeStart[0]=event.getX();swipeStart[1]=event.getY();
+                                    swipedToReply[0]=false;
+                                    break;
+                                case android.view.MotionEvent.ACTION_UP:
+                                    float dx=event.getX()-swipeStart[0];
+                                    float dy=event.getY()-swipeStart[1];
+                                    if(dx>=dp(68) && dx>Math.abs(dy)*1.35f){
+                                        selectReplyTarget(message,replyingTo,replyingBanner,input);
+                                        swipedToReply[0]=!replyingTo[0].isEmpty();
+                                    }
+                                    break;
+                                case android.view.MotionEvent.ACTION_CANCEL:
+                                    swipedToReply[0]=false;
+                                    break;
+                            }
+                            return false;
                         });
                     }
                     bubble.setOnLongClickListener(v->{
@@ -1021,6 +1044,16 @@ public final class NativeMessengerActivity extends Activity {
             }).setNegativeButton("Закрыть",null).show();
     }
 
+    private GradientDrawable messageBubbleBackground(boolean mine){
+        GradientDrawable drawable=new GradientDrawable();
+        drawable.setColor(mine?0xff2f70b9:PANEL2);
+        float round=dp(18),small=dp(5);
+        drawable.setCornerRadii(mine?
+                new float[]{round,round,round,round,small,small,round,round}:
+                new float[]{round,round,round,round,round,round,small,small});
+        return drawable;
+    }
+
     private LinearLayout addBubble(LinearLayout panel,String body,boolean mine,String timestamp,boolean deleted){
         return addBubble(panel,body,mine,timestamp,deleted,false);
     }
@@ -1028,7 +1061,7 @@ public final class NativeMessengerActivity extends Activity {
         LinearLayout line=row();line.setGravity(mine?Gravity.RIGHT:Gravity.LEFT);
         TextView bubble=text(deleted?"Сообщение удалено":body,15,TEXT,false);
         pad(bubble,14,10,14,10);bubble.setMaxWidth(dp(300));
-        bubble.setBackground(shape(mine?0xff3e5baf:PANEL2,16));
+        bubble.setBackground(messageBubbleBackground(mine));
         LinearLayout.LayoutParams cell=lp(-2,-2);cell.setMargins(0,dp(5),0,dp(5));
         line.addView(bubble,cell);panel.addView(line,lp(-1,-2));
         if(!timestamp.isEmpty()){
@@ -1080,6 +1113,19 @@ public final class NativeMessengerActivity extends Activity {
             }).setNegativeButton("Отмена",null).show();
     }
 
+    private void selectReplyTarget(JSONObject message,String[] replyingTo,
+                                    TextView replyBanner,EditText composer){
+        if(message==null || message.optBoolean("deleted"))return;
+        String id=message.optString("id","");
+        if(id.isEmpty())return;
+        replyingTo[0]=id;
+        String body=message.optString("body","");
+        String snippet=body.length()>55?body.substring(0,55)+"…":body;
+        replyBanner.setText("↳ Ответ: "+snippet+"    × (нажмите для отмены)");
+        replyBanner.setVisibility(View.VISIBLE);
+        composer.requestFocus();
+    }
+
     private void showMessageActions(JSONObject message,boolean group,EditText composer,
                                     String[] replyingTo,TextView replyBanner,Runnable refresh){
         if(message.optBoolean("deleted"))return;
@@ -1100,11 +1146,7 @@ public final class NativeMessengerActivity extends Activity {
                     notice("Сообщение скопировано");
                 }
             }else if(action.equals("Ответить")){
-                replyingTo[0]=id;
-                String snippet=body.length()>55?body.substring(0,55)+"…":body;
-                replyBanner.setText("↳ Ответ: "+snippet+"    × (нажмите для отмены)");
-                replyBanner.setVisibility(View.VISIBLE);
-                composer.requestFocus();
+                selectReplyTarget(message,replyingTo,replyBanner,composer);
             }else if(action.equals("Реакция")){
                 String[] emojis={"❤️","👍","😂","😮","😢","🔥"};
                 new AlertDialog.Builder(this).setTitle("Выбери реакцию")
