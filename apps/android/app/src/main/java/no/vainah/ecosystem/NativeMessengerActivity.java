@@ -671,6 +671,12 @@ public final class NativeMessengerActivity extends Activity {
         options.setTextSize(26);options.setBackground(shape(BG,12));
         threadHeader.addView(options,lp(46,46));
         options.setOnClickListener(v->showChatOptions(contact,group));
+        if(!group){
+            Button searchMessages=button("⌕",false);
+            searchMessages.setTextSize(23);searchMessages.setBackground(shape(BG,12));
+            threadHeader.addView(searchMessages,1,lp(44,46));
+            searchMessages.setOnClickListener(v->searchInsideChat(id));
+        }
         if(group && user.optString("id").equals(contact.optString("owner_id"))){
             Button addMember=button("＋ Добавить по @username",false);
             root.addView(addMember,lp(-1,49));
@@ -681,6 +687,15 @@ public final class NativeMessengerActivity extends Activity {
         root.addView(messagesFrame,new LinearLayout.LayoutParams(-1,0,1));
         ScrollView scroll=new ScrollView(this);messagesFrame.addView(scroll,new FrameLayout.LayoutParams(-1,-1));
         LinearLayout messages=column();pad(messages,14,15,14,15);scroll.addView(messages);
+        final String[] replyingTo={""};
+        TextView replyingBanner=text("",13,BLUE,false);
+        pad(replyingBanner,19,10,19,10);
+        replyingBanner.setBackgroundColor(PANEL2);
+        root.addView(replyingBanner,lp(-1,44));
+        replyingBanner.setVisibility(View.GONE);
+        replyingBanner.setOnClickListener(v->{
+            replyingTo[0]="";replyingBanner.setVisibility(View.GONE);
+        });
         LinearLayout composer=row();pad(composer,9,8,9,12);composer.setBackgroundColor(PANEL);root.addView(composer,lp(-1,76));
         EditText input=field("Сообщение",false);input.setSingleLine(false);input.setMaxLines(3);
         if(!group)input.addTextChangedListener(new TextWatcher(){
@@ -732,8 +747,33 @@ public final class NativeMessengerActivity extends Activity {
                         content=message.optString("sender","Участник")+":\n"+content;
                     boolean own=message.optBoolean("mine");
                     boolean read=!message.isNull("read_at") && message.optLong("read_at")>0;
-                    addBubble(messages,content,own,
+                    JSONObject linked=message.optJSONObject("reply_to");
+                    if(linked!=null && !message.optBoolean("deleted")){
+                        content="↳ "+(linked.optBoolean("mine")?"Вы: ":"")+
+                                linked.optString("body","Сообщение")+"\n"+content;
+                    }
+                    if(message.optLong("edited_at")>0 && !message.optBoolean("deleted"))
+                        content+="\n(изменено)";
+                    LinearLayout bubble=addBubble(messages,content,own,
                             formatTime(message.optLong("created_at")),message.optBoolean("deleted"),read);
+                    JSONArray reactions=message.optJSONArray("reactions");
+                    if(reactions!=null && reactions.length()>0){
+                        StringBuilder emoji=new StringBuilder();
+                        for(int k=0;k<reactions.length();k++){
+                            JSONObject reaction=reactions.optJSONObject(k);
+                            if(reaction!=null)emoji.append(reaction.optString("emoji")).append(" ");
+                        }
+                        TextView summary=text(emoji.toString().trim(),15,BLUE,false);
+                        summary.setGravity(own?Gravity.RIGHT:Gravity.LEFT);
+                        messages.addView(summary,lp(-1,28));
+                        summary.setOnClickListener(v->{
+                            if(!group)showMessageActions(message,false,input,replyingTo,replyingBanner,liveThreadRefresh);
+                        });
+                    }
+                    bubble.setOnLongClickListener(v->{
+                        showMessageActions(message,group,input,replyingTo,replyingBanner,liveThreadRefresh);
+                        return true;
+                    });
                 }
                 if(stickToBottom)scroll.post(()->{
                     if(threadEpoch==generation)scroll.fullScroll(View.FOCUS_DOWN);
@@ -757,14 +797,21 @@ public final class NativeMessengerActivity extends Activity {
             String body=input.getText().toString().trim();if(body.isEmpty())return;
             send.setEnabled(false);
             JSONObject data=json("body",body);
+            final String sentReply=replyingTo[0];
             String path=group?"/api/messenger/v2/groups/"+id+"/send":"/api/messenger/v2/send";
-            if(!group)try{data.put("contact_id",id);}catch(Exception ignored){}
+            if(!group)try{
+                data.put("contact_id",id);
+                if(!sentReply.isEmpty())data.put("reply_to_id",sentReply);
+            }catch(Exception ignored){}
             request("POST",path,data,(response,error)->{
                 if(threadEpoch!=generation)return;
                 send.setEnabled(true);
                 if(error!=null){notice(error);return;}
                 // Do not erase a new draft typed while the previous message was sending.
                 if(input.getText().toString().trim().equals(body))input.setText("");
+                if(!sentReply.isEmpty() && sentReply.equals(replyingTo[0])){
+                    replyingTo[0]="";replyingBanner.setVisibility(View.GONE);
+                }
                 refresh.run();
             });
         });
@@ -866,10 +913,10 @@ public final class NativeMessengerActivity extends Activity {
             }).setNegativeButton("Закрыть",null).show();
     }
 
-    private void addBubble(LinearLayout panel,String body,boolean mine,String timestamp,boolean deleted){
-        addBubble(panel,body,mine,timestamp,deleted,false);
+    private LinearLayout addBubble(LinearLayout panel,String body,boolean mine,String timestamp,boolean deleted){
+        return addBubble(panel,body,mine,timestamp,deleted,false);
     }
-    private void addBubble(LinearLayout panel,String body,boolean mine,String timestamp,boolean deleted,boolean read){
+    private LinearLayout addBubble(LinearLayout panel,String body,boolean mine,String timestamp,boolean deleted,boolean read){
         LinearLayout line=row();line.setGravity(mine?Gravity.RIGHT:Gravity.LEFT);
         TextView bubble=text(deleted?"Сообщение удалено":body,15,TEXT,false);
         pad(bubble,14,10,14,10);bubble.setMaxWidth(dp(300));
@@ -882,6 +929,110 @@ public final class NativeMessengerActivity extends Activity {
             label.setGravity(mine?Gravity.RIGHT:Gravity.LEFT);
             panel.addView(label,lp(-1,-2));
         }
+        return line;
+    }
+
+    private void searchInsideChat(String contactId){
+        EditText q=field("Введите текст сообщения",false);
+        LinearLayout holder=column();pad(holder,18,10,18,7);holder.addView(q,lp(-1,52));
+        new AlertDialog.Builder(this).setTitle("Поиск в переписке").setView(holder)
+            .setPositiveButton("Искать",(dialog,which)->{
+                String term=q.getText().toString().trim();
+                if(term.length()<2 || term.length()>80){
+                    notice("От 2 до 80 символов");return;
+                }
+                request("GET","/api/messenger/v2/search/"+contactId+"?q="+Uri.encode(term),
+                    null,(data,error)->{
+                        if(error!=null){notice(error);return;}
+                        JSONArray matches=data.optJSONArray("items");
+                        if(matches==null || matches.length()==0){
+                            new AlertDialog.Builder(this).setTitle("Поиск")
+                                .setMessage("Сообщения не найдены среди последних 1000 сообщений.")
+                                .setPositiveButton("Закрыть",null).show();
+                            return;
+                        }
+                        String[] labels=new String[matches.length()];
+                        for(int i=0;i<matches.length();i++){
+                            JSONObject item=matches.optJSONObject(i);
+                            if(item==null)continue;
+                            String text=item.optString("body","").replace("\n"," ");
+                            labels[i]=(item.optBoolean("mine")?"Вы: ":"Собеседник: ")+
+                                    (text.length()>84?text.substring(0,84)+"…":text);
+                        }
+                        new AlertDialog.Builder(this).setTitle("Найдено: "+matches.length())
+                            .setItems(labels,(select,index)->{
+                                JSONObject item=matches.optJSONObject(index);
+                                if(item==null)return;
+                                new AlertDialog.Builder(this).setTitle(
+                                        formatTime(item.optLong("created_at")))
+                                    .setMessage(item.optString("body",""))
+                                    .setPositiveButton("Закрыть",null).show();
+                            }).setNegativeButton("Закрыть",null).show();
+                    });
+            }).setNegativeButton("Отмена",null).show();
+    }
+
+    private void showMessageActions(JSONObject message,boolean group,EditText composer,
+                                    String[] replyingTo,TextView replyBanner,Runnable refresh){
+        if(message.optBoolean("deleted"))return;
+        String id=message.optString("id","");
+        if(id.isEmpty())return;
+        boolean own=message.optBoolean("mine");
+        // Group deletion/reactions/replies are not yet supported by server API.
+        String[] actions=group?new String[]{"Копировать"}:
+            own?new String[]{"Ответить","Реакция","Копировать","Изменить","Удалить"}:
+                new String[]{"Ответить","Реакция","Копировать"};
+        new AlertDialog.Builder(this).setTitle("Сообщение").setItems(actions,(dialog,index)->{
+            String action=actions[index];
+            String body=message.optString("body","");
+            if(action.equals("Копировать")){
+                ClipboardManager clip=(ClipboardManager)getSystemService(Context.CLIPBOARD_SERVICE);
+                if(clip!=null){
+                    clip.setPrimaryClip(ClipData.newPlainText("Vainah message",body));
+                    notice("Сообщение скопировано");
+                }
+            }else if(action.equals("Ответить")){
+                replyingTo[0]=id;
+                String snippet=body.length()>55?body.substring(0,55)+"…":body;
+                replyBanner.setText("↳ Ответ: "+snippet+"    × (нажмите для отмены)");
+                replyBanner.setVisibility(View.VISIBLE);
+                composer.requestFocus();
+            }else if(action.equals("Реакция")){
+                String[] emojis={"❤️","👍","😂","😮","😢","🔥"};
+                new AlertDialog.Builder(this).setTitle("Выбери реакцию")
+                    .setItems(emojis,(d,chosen)->request("PUT",
+                        "/api/messenger/v2/message/"+id+"/reaction",
+                        json("emoji",emojis[chosen]),(result,error)->{
+                            if(error!=null)notice(error);
+                            else if(refresh!=null)refresh.run();
+                        })).setNegativeButton("Отмена",null).show();
+            }else if(action.equals("Изменить") && own){
+                EditText content=field("Текст сообщения",false);
+                content.setSingleLine(false);content.setMaxLines(5);
+                content.setText(body);
+                LinearLayout box=column();pad(box,20,10,20,10);box.addView(content,lp(-1,-2));
+                new AlertDialog.Builder(this).setTitle("Изменить сообщение")
+                    .setView(box).setPositiveButton("Сохранить",(d,w)->{
+                        String changed=content.getText().toString().trim();
+                        if(changed.isEmpty()||changed.length()>3000){
+                            notice("Сообщение: от 1 до 3000 символов");return;
+                        }
+                        request("PATCH","/api/messenger/v2/message/"+id,
+                            json("body",changed),(result,error)->{
+                                if(error!=null)notice(error);
+                                else if(refresh!=null)refresh.run();
+                            });
+                    }).setNegativeButton("Отмена",null).show();
+            }else if(action.equals("Удалить") && own){
+                new AlertDialog.Builder(this).setTitle("Удалить сообщение?")
+                    .setMessage("Сообщение будет удалено из переписки для обоих участников.")
+                    .setPositiveButton("Удалить",(d,w)->request("DELETE",
+                        "/api/messenger/v2/message/"+id,null,(result,error)->{
+                            if(error!=null)notice(error);
+                            else if(refresh!=null)refresh.run();
+                        })).setNegativeButton("Отмена",null).show();
+            }
+        }).setNegativeButton("Закрыть",null).show();
     }
 
     private void loadChannels(int epoch){
