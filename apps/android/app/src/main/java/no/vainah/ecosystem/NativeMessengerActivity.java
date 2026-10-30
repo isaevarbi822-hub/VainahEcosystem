@@ -494,7 +494,7 @@ public final class NativeMessengerActivity extends Activity {
                 }
                 for(int i=0;i<items.length();i++){
                     JSONObject person=items.optJSONObject(i);if(person==null)continue;
-                    addConversation(found,name(person),"@"+person.optString("username"),0,"",false,"direct",
+                    addConversation(found,name(person),"@"+person.optString("username"),0,"",person.optBoolean("verified"),"direct",
                             ()->openThread(person,false));
                 }
             });
@@ -1071,7 +1071,7 @@ public final class NativeMessengerActivity extends Activity {
                         String username=person.optString("username","");
                         addConversation(results,name(person),username.isEmpty()?
                                 "Vainah ID: "+term:"@"+username+" · ID "+term,
-                                0,"",false,"direct",()->openThread(person,false));
+                                0,"",person.optBoolean("verified"),"direct",()->openThread(person,false));
                     }else{
                         JSONArray matches=data.optJSONArray("items");
                         if(matches==null||matches.length()==0){
@@ -1079,7 +1079,7 @@ public final class NativeMessengerActivity extends Activity {
                         }
                         for(int i=0;i<matches.length();i++){
                             JSONObject person=matches.optJSONObject(i);if(person==null)continue;
-                            addConversation(results,name(person),"@"+person.optString("username"),0,"",false,"direct",
+                            addConversation(results,name(person),"@"+person.optString("username"),0,"",person.optBoolean("verified"),"direct",
                                 ()->openThread(person,false));
                         }
                     }
@@ -1104,8 +1104,10 @@ public final class NativeMessengerActivity extends Activity {
         LinearLayout hero=column();hero.setGravity(Gravity.CENTER);
         TextView face=avatar(name(user),"direct");face.setTextSize(49);
         hero.addView(face,lp(114,114));space(hero,19);
+        LinearLayout profileHeading=row();profileHeading.setGravity(Gravity.CENTER);
         TextView display=text(name(user),28,TEXT,true);display.setGravity(Gravity.CENTER);
-        hero.addView(display,lp(-1,43));space(hero,7);
+        profileHeading.addView(display);
+        hero.addView(profileHeading,lp(-1,43));space(hero,7);
         TextView emailLine=text(user.optString("email","Vainah ID"),14,MUTED,false);
         emailLine.setGravity(Gravity.CENTER);hero.addView(emailLine,lp(-1,27));space(hero,19);
         list.addView(hero,lp(-1,-2));
@@ -1178,6 +1180,7 @@ public final class NativeMessengerActivity extends Activity {
             verified=error==null&&data.optBoolean("verified");
             canManage=error==null&&data.optBoolean("can_manage");
             if(verified){
+                profileHeading.addView(badge(),lp(22,22));
                 LinearLayout mark=row();mark.addView(text("Аккаунт подтверждён",15,TEXT,true));
                 mark.addView(badge(),lp(20,20));list.addView(mark);
             }
@@ -1203,7 +1206,7 @@ public final class NativeMessengerActivity extends Activity {
         list.addView(text("Переписки хранятся на сервере Vainah. Сквозного шифрования пока нет.",12,MUTED,false));
     }
     private void manageBadge(){
-        EditText target=field("UUID пользователя",false);
+        EditText target=field("Vainah ID, @username или UUID",false);
         LinearLayout pane=column();pad(pane,20,9,20,7);pane.addView(target,lp(-1,51));
         new AlertDialog.Builder(this).setTitle("Подтвердить аккаунт").setView(pane)
                 .setPositiveButton("Выдать галочку",(dialog,which)->changeBadge(target.getText().toString(),true))
