@@ -389,7 +389,11 @@ public final class NativeMedia {
         int padding=(int)(18*activity.getResources().getDisplayMetrics().density);
         panel.setPadding(padding,padding,padding,padding);
         TextView label=new TextView(activity);
-        label.setText(kind.equals("voice")?"🎤 Голосовое сообщение":"♫ Аудиофайл");
+        long durationSeconds=Math.max(0,player.getDuration()/1000);
+        String duration=String.format(java.util.Locale.ROOT,"%d:%02d",
+                durationSeconds/60,durationSeconds%60);
+        label.setText((kind.equals("voice")?"🎤 Голосовое сообщение":"♫ Аудиофайл")
+                +"  ·  "+duration);
         label.setTextSize(19);panel.addView(label);
         Button play=new Button(activity);play.setText("▶ Воспроизвести");
         panel.addView(play);
