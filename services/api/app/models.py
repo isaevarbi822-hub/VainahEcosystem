@@ -212,4 +212,16 @@ class MessengerGroupMessage(Base):
     deleted_at: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
 
+class MessengerGroupAttachment(Base):
+    """Private group media; authorization always follows group membership."""
+    __tablename__ = "messenger_group_attachments"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    message_id: Mapped[str] = mapped_column(
+        ForeignKey("messenger_group_messages.id", ondelete="CASCADE"), unique=True, index=True)
+    filename: Mapped[str] = mapped_column(String(160))
+    media_type: Mapped[str] = mapped_column(String(50))
+    size: Mapped[int] = mapped_column(Integer)
+    content: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+
+
 Index("ix_messenger_group_messages_recent", MessengerGroupMessage.group_id, MessengerGroupMessage.created_at)
