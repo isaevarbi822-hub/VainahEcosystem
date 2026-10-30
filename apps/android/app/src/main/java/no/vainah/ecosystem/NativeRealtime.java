@@ -96,6 +96,11 @@ public final class NativeRealtime {
         main.postDelayed(pendingRetry, delay);
     }
 
+    /** Send ephemeral state only over an already authenticated live connection. */
+    public boolean send(JSONObject message) {
+        return desired && socket != null && socket.send(message.toString());
+    }
+
     public void stop() {
         generation++;
         desired = false;
