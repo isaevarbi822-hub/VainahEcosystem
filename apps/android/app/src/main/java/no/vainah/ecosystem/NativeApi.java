@@ -1,6 +1,9 @@
 package no.vainah.ecosystem;
 
 import android.app.Activity;
+import android.net.Uri;
+import android.database.Cursor;
+import android.provider.OpenableColumns;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.security.keystore.KeyGenParameterSpec;
@@ -10,6 +13,8 @@ import android.util.Base64;
 import org.json.JSONObject;
 
 import java.io.InputStream;
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.OutputStream;
 import java.io.ByteArrayOutputStream;
 import java.net.HttpURLConnection;
@@ -33,6 +38,10 @@ public final class NativeApi {
     public interface Callback {
         void complete(JSONObject response, String error);
     }
+    public interface MediaCallback {
+        void complete(File file, String error);
+    }
+    private static final long MAX_MEDIA = 20L * 1024 * 1024;
 
     private final Activity activity;
     private final String origin;
@@ -172,6 +181,115 @@ public final class NativeApi {
             final JSONObject finalResult = result;
             final String finalError = error;
             activity.runOnUiThread(() -> callback.complete(finalResult, finalError));
+        });
+    }
+
+
+    /** Bounded multipart upload; file content never enters a JSON string or public URL. */
+    public void uploadAttachment(String contactId, Uri uri, String desiredFilename,
+                                 String contentType, Callback callback) {
+        queue.execute(() -> {
+            HttpURLConnection conn=null;
+            JSONObject result=new JSONObject();
+            String error=null;
+            try {
+                if (!contactId.matches("[a-fA-F0-9-]{36}") || cookie.isEmpty())
+                    throw new IllegalArgumentException("Требуется авторизация");
+                long size=-1;
+                try (Cursor info=activity.getContentResolver().query(uri,
+                        new String[]{OpenableColumns.SIZE},null,null,null)) {
+                    if(info!=null && info.moveToFirst())
+                        size=info.getLong(0);
+                } catch(Exception ignored) { }
+                if(size>MAX_MEDIA)
+                    throw new IllegalArgumentException("Файл больше 20 МБ");
+                String filename=desiredFilename.replaceAll("[^\\p{L}\\p{N}._ -]","_");
+                if(filename.isEmpty())filename="media.bin";
+                filename=filename.substring(0,Math.min(filename.length(),130));
+                String mime=contentType==null?"application/octet-stream":
+                        contentType.replaceAll("[^a-zA-Z0-9/+.\\-]","");
+                String boundary="vainah-"+java.util.UUID.randomUUID();
+                conn=(HttpURLConnection)new URL(origin+"/api/messenger/v2/send-file").openConnection();
+                conn.setRequestMethod("POST");conn.setConnectTimeout(12000);
+                conn.setReadTimeout(45000);conn.setInstanceFollowRedirects(false);
+                conn.setDoOutput(true);conn.setChunkedStreamingMode(16384);
+                conn.setRequestProperty("Accept","application/json");
+                conn.setRequestProperty("Origin",origin);
+                conn.setRequestProperty("Cookie",cookie);
+                conn.setRequestProperty("X-CSRF-Token",csrf);
+                conn.setRequestProperty("Content-Type","multipart/form-data; boundary="+boundary);
+                try(OutputStream out=conn.getOutputStream();
+                    InputStream input=activity.getContentResolver().openInputStream(uri)){
+                    if(input==null)throw new IllegalArgumentException("Невозможно прочитать файл");
+                    out.write(("--"+boundary+"\r\nContent-Disposition: form-data; name=\"contact_id\"\r\n\r\n"+
+                            contactId+"\r\n").getBytes(StandardCharsets.UTF_8));
+                    out.write(("--"+boundary+"\r\nContent-Disposition: form-data; name=\"file\"; filename=\""+
+                            filename+"\"\r\nContent-Type: "+mime+"\r\n\r\n").getBytes(StandardCharsets.UTF_8));
+                    byte[] block=new byte[16384];
+                    long total=0;int n;
+                    while((n=input.read(block))!=-1){
+                        total+=n;
+                        if(total>MAX_MEDIA)throw new IllegalArgumentException("Файл больше 20 МБ");
+                        out.write(block,0,n);
+                    }
+                    out.write(("\r\n--"+boundary+"--\r\n").getBytes(StandardCharsets.UTF_8));
+                }
+                int status=conn.getResponseCode();
+                try(InputStream input=(status>=400?conn.getErrorStream():conn.getInputStream())){
+                    if(input!=null){
+                        ByteArrayOutputStream buffer=new ByteArrayOutputStream();
+                        byte[] data=new byte[4096];int n;
+                        while((n=input.read(data))!=-1){
+                            buffer.write(data,0,n);
+                            if(buffer.size()>1000000)throw new IllegalArgumentException("Ошибка сервера слишком велика");
+                        }
+                        if(buffer.size()>0)result=new JSONObject(buffer.toString("UTF-8"));
+                    }
+                }
+                if(status==401){clear();error="Сессия завершена. Войдите снова.";}
+                else if(status<200 || status>=300)
+                    error=result.optString("detail","Сервер отклонил вложение: "+status);
+            }catch(Exception ex){
+                error=ex instanceof IllegalArgumentException?ex.getMessage():
+                    "Не удалось отправить файл. Проверьте соединение и размер.";
+            }finally{if(conn!=null)conn.disconnect();}
+            JSONObject response=result;String failure=error;
+            activity.runOnUiThread(()->callback.complete(response,failure));
+        });
+    }
+
+    /** Authenticated attachment download into a temporary private cache file. */
+    public void fetchAttachment(String path, MediaCallback callback) {
+        queue.execute(()->{
+            HttpURLConnection conn=null;
+            File file=null;String error=null;
+            try {
+                if(!path.matches("/api/messenger/v2/file/[a-fA-F0-9-]{36}") || cookie.isEmpty())
+                    throw new IllegalArgumentException("Недоступный файл");
+                conn=(HttpURLConnection)new URL(origin+path).openConnection();
+                conn.setRequestMethod("GET");conn.setConnectTimeout(12000);
+                conn.setReadTimeout(30000);conn.setInstanceFollowRedirects(false);
+                conn.setRequestProperty("Cookie",cookie);
+                conn.setRequestProperty("Accept","*/*");
+                int status=conn.getResponseCode();
+                if(status!=200)throw new IllegalArgumentException("Файл недоступен ("+status+")");
+                file=File.createTempFile("vainah-preview-",".bin",activity.getCacheDir());
+                try(InputStream in=conn.getInputStream();
+                    FileOutputStream out=new FileOutputStream(file)){
+                    byte[] block=new byte[16384];int count;long length=0;
+                    while((count=in.read(block))!=-1){
+                        length+=count;
+                        if(length>MAX_MEDIA)throw new IllegalArgumentException("Файл превышает лимит");
+                        out.write(block,0,count);
+                    }
+                }
+            }catch(Exception ex){
+                error=ex instanceof IllegalArgumentException?ex.getMessage():
+                    "Не удалось загрузить вложение";
+                if(file!=null){file.delete();file=null;}
+            }finally{if(conn!=null)conn.disconnect();}
+            File delivered=file;String failure=error;
+            activity.runOnUiThread(()->callback.complete(delivered,failure));
         });
     }
 
