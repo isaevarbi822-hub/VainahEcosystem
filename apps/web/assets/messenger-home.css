@@ -46,3 +46,113 @@ body.messenger-only{margin:0;background:var(--vm-bg);color:var(--vm-ink);font:15
 .vm-community-form{display:flex;flex-wrap:wrap;gap:10px;padding:22px 26px}.vm-community-form input,.vm-community-form textarea{background:#17253d;border:1px solid #3b5276;border-radius:13px;color:#e8edfd;font:inherit;padding:12px;flex:1;min-width:190px}.vm-community-form textarea{flex-basis:100%;min-height:85px;resize:vertical}.vm-community-list{display:grid;gap:12px;padding:10px 26px 30px;overflow:auto}.vm-community-item{padding:22px;border:1px solid #334765;background:#18253d;border-radius:17px}.vm-community-item h3{font-size:18px;margin:0 0 7px}.vm-community-item p{color:#b5c3db;white-space:pre-wrap;overflow-wrap:anywhere;margin:8px 0 17px}.vm-community-item button{margin-right:9px;margin-bottom:5px}
 .vchat .vchat-verified{font-family:system-ui;line-height:17px}
 @media(max-width:700px){.vm-community-form,.vm-community-list,.vm-community-head{padding-left:14px;padding-right:14px}.vm-community-form input{min-width:0;flex-basis:100%}}
+
+
+/* 0.8.1 mobile messenger: original Vainah design based on approved UI mock. */
+.vm-mobile-actions{display:none;align-items:center;gap:6px}
+.vm-mobile-actions button{height:43px;width:43px;display:grid;place-items:center;background:transparent;border:0;color:#f3f6ff;border-radius:14px;cursor:pointer}
+.vm-mobile-actions button:hover{background:#263653}
+.vm-floating-compose{display:none}
+.vm-workspace .vchat-contact-aside{display:flex;align-items:flex-end;justify-content:center;flex-direction:column;gap:9px;min-width:36px}
+.vm-workspace .vchat-contact-time{color:#8497b7;font-size:11px;white-space:nowrap}
+.vm-workspace .vchat-contact-label{color:#8798b4;font-size:9px;letter-spacing:.7px}
+.vm-workspace .vchat-contact .vchat-count{background:#2686fb;color:white;min-width:23px;min-height:23px;border-radius:50%;font-size:11px;padding:2px 6px}
+.vm-workspace .vchat-contact .vchat-avatar{border-radius:50%;background:linear-gradient(135deg,#4969b5,#9468de);width:49px;height:49px}
+.vm-workspace .vchat-contact-channel .vchat-avatar{background:linear-gradient(135deg,#167cf6,#2450af)}
+.vm-workspace .vchat-contact-bot .vchat-avatar{background:linear-gradient(135deg,#174a62,#199997)}
+.vm-workspace .vchat-contact .vchat-avatar svg{width:22px;height:22px;stroke:#fff;fill:none}
+.vm-workspace .vchat-contact-main strong{font-weight:750;color:#f2f5ff}
+.vm-workspace .vchat-contact-main small{color:#93a6c7}
+.vm-workspace .vchat-contact{cursor:pointer;transition:background .15s}
+.vm-workspace .vchat-contact:hover{background:#1b2b47}
+.vm-workspace .vchat-contact:focus-visible{outline:2px solid #71a8ff;outline-offset:-2px}
+@media(max-width:700px){
+  body.messenger-only{background:#0a1120}
+  .messenger-only .vm-workspace{flex-direction:column-reverse;overflow:hidden;height:100dvh;height:100svh}
+  .messenger-only .vm-app-main{flex:1;min-height:0;height:auto;width:100%;overflow:hidden}
+  .messenger-only .vm-app-rail{
+    order:0;width:100%;min-width:0;height:70px;min-height:70px;padding:5px 4px max(6px,env(safe-area-inset-bottom));
+    display:flex;flex-direction:row;justify-content:space-around;align-items:center;gap:0;
+    border-right:0;border-top:1px solid #26374f;background:#101b2d;
+    box-shadow:0 -8px 25px #02050c22;z-index:7
+  }
+  .messenger-only .vm-rail-brand,.messenger-only .vm-rail-label,.messenger-only .vm-rail-bottom{display:none}
+  .messenger-only .vm-rail-item{
+    flex:1;width:auto;max-width:110px;min-width:0;min-height:55px;
+    padding:5px 2px;display:flex;flex-direction:column;justify-content:center;
+    border-radius:11px;background:transparent;color:#899bb7;gap:2px
+  }
+  .messenger-only .vm-rail-item svg{height:23px;width:23px}
+  .messenger-only .vm-rail-item span{font-size:11px;display:block}
+  .messenger-only .vm-rail-item.active{color:#368eff;background:transparent;position:relative}
+  .messenger-only .vm-rail-item.active:after{content:"";position:absolute;bottom:0;height:3px;background:#318dff;border-radius:9px;width:42px}
+  .messenger-only .vm-app-top{
+    flex-shrink:0;min-height:72px;height:72px;padding:8px 15px 10px 20px;
+    background:#0b1424;border-bottom:0;gap:12px
+  }
+  .messenger-only .vm-app-top h1{font-size:30px;line-height:1.1;letter-spacing:-1px;margin:5px 0 0}
+  .messenger-only .vm-app-overline{display:none}
+  .messenger-only .vm-app-user{margin-left:auto}
+  .messenger-only .vm-mobile-actions{display:flex;margin-left:auto}
+  .messenger-only .vm-status-indicator{display:none}
+  .messenger-only .vm-app-top .vm-app-user{display:none}
+  .messenger-only #screen-feature{flex:1;min-height:0;width:100%;overflow:hidden}
+  .messenger-only .vm-feature-root{min-height:0;height:100%;width:100%}
+  .messenger-only .vm-feature-root>.vchat{
+    display:grid;grid-template-columns:1fr;min-height:0;height:100%;
+    width:100%;border:0;border-radius:0;box-shadow:none;background:#0b1424
+  }
+  .messenger-only .vchat-sidebar{
+    display:flex;gap:9px;min-height:0;grid-column:1;grid-row:1;
+    padding:5px 10px 0;background:#0b1424;border:0
+  }
+  .messenger-only .vchat-side-top{display:none}
+  .messenger-only .vchat-sidebar input[type=search]{
+    height:49px;border:1px solid #202e44!important;background:#1b273a!important;
+    color:#eef4ff!important;border-radius:30px!important;font-size:14px!important;
+    padding:12px 17px!important;margin:0 3px 2px;width:calc(100% - 6px)
+  }
+  .messenger-only .vchat-sidebar input[type=search]::placeholder{color:#8e9db8}
+  .messenger-only .vchat-new{display:none;background:#15233a;border:1px solid #384f70;border-radius:14px;padding:12px 10px;flex-direction:row}
+  .messenger-only .vchat-sidebar.new-open .vchat-new{display:flex}
+  .messenger-only .vchat-new input{font-size:13px}
+  .messenger-only .vchat-new button{width:auto;font-size:12px;border-radius:10px}
+  .messenger-only .vchat-group-create{border:0;background:#14233c;margin:0 3px;border-radius:13px}
+  .messenger-only .vchat-group-create summary{font-size:12px;padding:9px 13px}
+  .messenger-only .vchat-filters{padding:1px 3px 7px;scrollbar-width:none}
+  .messenger-only .vchat-filters::-webkit-scrollbar{display:none}
+  .messenger-only .vchat-filter{background:#1a2940;color:#a8bbdb;border:0;border-radius:18px;padding:8px 13px;font-size:12px}
+  .messenger-only .vchat-filter.active{background:#2867d4;color:white}
+  .messenger-only .vchat-contacts{flex:1;min-height:0;overflow-y:auto;gap:0;padding-bottom:95px}
+  .messenger-only .vchat-contact{
+    border:0;border-radius:0;border-bottom:1px solid #22314880;padding:14px 8px;min-height:81px;gap:12px;background:transparent
+  }
+  .messenger-only .vchat-contact.active{background:#1b2c46}
+  .messenger-only .vchat-contact .vchat-avatar{width:54px;height:54px;font-size:21px}
+  .messenger-only .vchat-contact-main strong{font-size:15px}
+  .messenger-only .vchat-contact-main small{font-size:13px}
+  .messenger-only .vchat-contact-aside{min-width:43px}
+  .messenger-only .vchat-contact-time{font-size:11px}
+  .messenger-only .vm-floating-compose{
+    display:flex;position:fixed;z-index:12;right:21px;bottom:93px;
+    width:57px;height:57px;border:0;align-items:center;justify-content:center;
+    border-radius:50%;background:linear-gradient(140deg,#1993ff,#3273ef);
+    color:#fff;box-shadow:0 9px 30px #086ad650;cursor:pointer
+  }
+  .messenger-only .vm-floating-compose svg{height:26px;width:26px}
+  .messenger-only .vm-chat-open .vm-floating-compose{display:none}
+  .messenger-only .vm-chat-open .vm-app-rail{display:none}
+  .messenger-only .vm-chat-open .vm-app-top{display:none}
+  .messenger-only .vchat.thread-open .vchat-sidebar{display:none}
+  .messenger-only .vchat.thread-open .vchat-area{display:flex;grid-column:1;grid-row:1;min-height:0}
+  .messenger-only .vchat-header{min-height:66px;padding:8px 10px}
+  .messenger-only .vchat-person{gap:7px}
+  .messenger-only .vchat-header-actions{gap:4px}
+  .messenger-only .vchat-header-actions button{padding:7px 5px}
+  .messenger-only .vchat-identity strong{font-size:15px}
+  .messenger-only .vchat-composer{padding:9px 8px max(9px,env(safe-area-inset-bottom))}
+  .messenger-only .vchat-composer textarea{min-height:43px;height:43px;resize:none}
+  .messenger-only .vm-settings-panel{max-width:none;width:100%;padding:20px;overflow:auto}
+  .messenger-only .vm-community-list{padding-bottom:98px}
+}
+@media(prefers-reduced-motion:reduce){.vm-workspace .vchat-contact{transition:none}}
