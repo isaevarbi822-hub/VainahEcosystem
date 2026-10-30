@@ -100,10 +100,25 @@ jobs:
         env:
           VAINAH_URL: ${{ vars.VAINAH_BASE_URL }}
           GOOGLE_WEB_CLIENT_ID: ${{ vars.VAINAH_GOOGLE_WEB_CLIENT_ID }}
+          ANDROID_KEYSTORE_B64: ${{ secrets.VAINAH_ANDROID_SIGNING_KEYSTORE_BASE64 }}
+          ANDROID_STORE_PASSWORD: ${{ secrets.VAINAH_ANDROID_SIGNING_STORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.VAINAH_ANDROID_SIGNING_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.VAINAH_ANDROID_SIGNING_KEY_PASSWORD }}
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p android-ci-logs
+          if [ -n "${ANDROID_KEYSTORE_B64}" ]; then
+            if [ -z "${ANDROID_STORE_PASSWORD}" ] || [ -z "${ANDROID_KEY_ALIAS}" ] || [ -z "${ANDROID_KEY_PASSWORD}" ]; then
+              echo "::error::Android signing secrets are incomplete."
+              exit 1
+            fi
+            printf '%s' "${ANDROID_KEYSTORE_B64}" | base64 --decode > "${RUNNER_TEMP}/vainah-signing.jks"
+            export VAINAH_ANDROID_SIGNING_STORE="${RUNNER_TEMP}/vainah-signing.jks"
+            export VAINAH_ANDROID_SIGNING_STORE_PASSWORD="${ANDROID_STORE_PASSWORD}"
+            export VAINAH_ANDROID_SIGNING_KEY_ALIAS="${ANDROID_KEY_ALIAS}"
+            export VAINAH_ANDROID_SIGNING_KEY_PASSWORD="${ANDROID_KEY_PASSWORD}"
+          fi
           extra=()
           if [ -n "${VAINAH_URL}" ]; then
             case "${VAINAH_URL}" in
@@ -124,8 +139,8 @@ jobs:
           # configuration failure without distributing an unusable APK.
           gradle -p apps/android :app:assembleDebug "${extra[@]}" -PVAINAH_MESSENGER=true "-PVAINAH_GOOGLE_WEB_CLIENT_ID=${GOOGLE_WEB_CLIENT_ID}" --rerun-tasks --stacktrace --warning-mode all --no-daemon 2>&1 | tee android-ci-logs/messenger.log
           echo '::endgroup::'
-          if [ -z "${VAINAH_URL}" ] || [ -z "${GOOGLE_WEB_CLIENT_ID}" ]; then
-            echo '::error::Add GitHub repository variables VAINAH_BASE_URL and VAINAH_GOOGLE_WEB_CLIENT_ID for a usable native Messenger APK'
+          if [ -z "${VAINAH_URL}" ] || [ -z "${GOOGLE_WEB_CLIENT_ID}" ] || [ -z "${ANDROID_KEYSTORE_B64}" ]; then
+            echo '::error::Native Google APK requires VAINAH_BASE_URL, VAINAH_GOOGLE_WEB_CLIENT_ID and persistent Android signing secrets'
             exit 1
           fi
           test -s apps/android/app/build/outputs/apk/debug/app-debug.apk
