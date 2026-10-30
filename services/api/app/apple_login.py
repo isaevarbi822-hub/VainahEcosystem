@@ -202,4 +202,4 @@ def apple_exchange(data:AppleExchange,request:Request,response:Response,
     db.commit()
     session_token,csrf=start_session(db,person)
     issue_cookie(response,session_token)
-    return {"user":public_user(person),"csrf_token":csrf}
+    return {"user":public_user(person,db),"csrf_token":csrf}
