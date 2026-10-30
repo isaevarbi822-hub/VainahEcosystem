@@ -89,3 +89,14 @@ APP_ORIGIN must match the HTTPS server origin. The callback is an Apple form_pos
 Setup: https://developer.apple.com/help/account/capabilities/configure-sign-in-with-apple-for-the-web
 
 The Android app must be tested on a real device; successful compilation alone does not validate Apple credentials.
+
+
+## 0.9.4 — Постоянный Vainah ID
+
+- У каждого пользователя есть уникальный 10-значный **Vainah ID**, например 6182903745 (просто пример).
+- Он не меняется при изменении публичного @username, смене устройства или повторном входе.
+- В Android → Профиль отображается Vainah ID и кнопка «Копировать».
+- В Android → Контакты можно найти человека по точному числовому ID. Частичный поиск ID не поддерживается; блокировки соблюдаются.
+- ID выдаётся сервером и хранится в таблице \`vainah_public_ids\` с ограничением уникальности. Существующие пользователи получают номер при первом авторизованном обращении к API после обновления.
+- Внутренний UUID продолжает использоваться в API как технический ключ. Vainah ID — отдельный публичный номер, это не Telegram ID и не номер телефона.
+- Для реальной работы необходимо обновить сервер Python на Render одновременно с Android.
