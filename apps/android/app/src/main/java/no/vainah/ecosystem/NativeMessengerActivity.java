@@ -553,6 +553,7 @@ public final class NativeMessengerActivity extends Activity {
     }
     private TextView badge(){
         TextView badge=text("✓",12,TEXT,true);badge.setGravity(Gravity.CENTER);
+        badge.setContentDescription("Проверено Vainah");
         badge.setBackground(shape(BLUE,30));
         if(android.animation.ValueAnimator.areAnimatorsEnabled()){
             Animation pulse=new AlphaAnimation(1f,.72f);
@@ -1263,7 +1264,7 @@ public final class NativeMessengerActivity extends Activity {
 
     private void openBot(JSONObject bot){
         String id=bot.optString("id");
-        showDetail(name(bot),false,"Автоматические ответы");
+        showDetail(name(bot),bot.optBoolean("verified",false),"Автоматические ответы");
         ScrollView scroll=new ScrollView(this);root.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));
         LinearLayout content=column();pad(content,19,17,19,15);scroll.addView(content);
         content.addView(text("Спросить бота",19,TEXT,true));space(content,13);
