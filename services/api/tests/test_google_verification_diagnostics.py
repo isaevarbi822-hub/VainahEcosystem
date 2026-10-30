@@ -40,7 +40,7 @@ def test_valid_id_token_is_accepted(monkeypatch):
 
 def test_wrong_audience_is_safe_to_display(monkeypatch, caplog):
     monkeypatch.setenv("GOOGLE_CLIENT_ID", "test.apps.googleusercontent.com")
-    def verify(*args):
+    def verify(*args, **kwargs):
         raise ValueError("Token has wrong audience private-google-identifier")
     _fake_google(monkeypatch, verify)
     with pytest.raises(HTTPException) as response:
@@ -52,7 +52,7 @@ def test_wrong_audience_is_safe_to_display(monkeypatch, caplog):
 
 def test_google_network_failure_is_not_misreported_as_bad_token(monkeypatch):
     monkeypatch.setenv("GOOGLE_CLIENT_ID", "test.apps.googleusercontent.com")
-    def verify(*args):
+    def verify(*args, **kwargs):
         raise google_transport_error("certificate fetch failed")
     google_transport_error = _fake_google(monkeypatch, verify)
     with pytest.raises(HTTPException) as response:
