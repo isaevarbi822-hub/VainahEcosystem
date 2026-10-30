@@ -59,6 +59,9 @@ public final class NativeMessengerActivity extends Activity {
     private Runnable liveThreadRefresh;
     private String currentThreadId = "";
     private boolean currentThreadIsGroup = false;
+    private TextView currentThreadSubtitle;
+    private long lastTypingSentMs = 0;
+    private int typingGeneration = 0;
     private boolean isForeground = false;
     private LinearLayout root;
     private LinearLayout list;
@@ -169,7 +172,7 @@ public final class NativeMessengerActivity extends Activity {
 
     private void showLogin(){
         if(live!=null)live.stop();
-        liveThreadRefresh=null;currentThreadId="";
+        liveThreadRefresh=null;currentThreadId="";currentThreadSubtitle=null;
         inDetail = false;
         generation++;reset();
         ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);root.addView(scroll,lp(-1,-1));
@@ -305,7 +308,7 @@ public final class NativeMessengerActivity extends Activity {
     }
 
     private void showHome(String target){
-        liveThreadRefresh=null;currentThreadId="";
+        liveThreadRefresh=null;currentThreadId="";currentThreadSubtitle=null;
         startLive();
         inDetail = false;
         tab=target;int epoch=++generation;chatRefreshInProgress=false;reset();
@@ -639,7 +642,7 @@ public final class NativeMessengerActivity extends Activity {
     }
 
     private void showDetail(String title,boolean verified,String subtitle) {
-        liveThreadRefresh=null;currentThreadId="";
+        liveThreadRefresh=null;currentThreadId="";currentThreadSubtitle=null;
         inDetail = true;
         generation++;reset();
         LinearLayout header=row();pad(header,10,9,15,9);root.addView(header,lp(-1,65));
@@ -655,10 +658,12 @@ public final class NativeMessengerActivity extends Activity {
 
     private void openThread(JSONObject contact,boolean group){
         String id=contact.optString("id");
-        showDetail(name(contact),contact.optBoolean("verified"),
-                group?"Групповая переписка":
-                        (contact.optString("username","").isEmpty()?"Личный чат":
-                                "@"+contact.optString("username")));
+        String normalSubtitle=group?"Групповая переписка":
+                (contact.optString("username","").isEmpty()?"Личный чат":
+                        "@"+contact.optString("username"));
+        showDetail(name(contact),contact.optBoolean("verified"),normalSubtitle);
+        if(root.getChildCount()>1 && root.getChildAt(1) instanceof TextView)
+            currentThreadSubtitle=(TextView)root.getChildAt(1);
         LinearLayout threadHeader=(LinearLayout)root.getChildAt(0);
         Button options=button("⋮",false);
         options.setTextSize(26);options.setBackground(shape(BG,12));
@@ -676,6 +681,17 @@ public final class NativeMessengerActivity extends Activity {
         LinearLayout messages=column();pad(messages,14,15,14,15);scroll.addView(messages);
         LinearLayout composer=row();pad(composer,9,8,9,12);composer.setBackgroundColor(PANEL);root.addView(composer,lp(-1,76));
         EditText input=field("Сообщение",false);input.setSingleLine(false);input.setMaxLines(3);
+        if(!group)input.addTextChangedListener(new TextWatcher(){
+            public void beforeTextChanged(CharSequence text,int start,int count,int after){}
+            public void onTextChanged(CharSequence text,int start,int before,int count){
+                long now=android.os.SystemClock.elapsedRealtime();
+                if(text.length()>0 && live!=null && now-lastTypingSentMs>2000){
+                    lastTypingSentMs=now;
+                    live.send(json("type","typing","to",id));
+                }
+            }
+            public void afterTextChanged(Editable text){}
+        });
         composer.addView(input,new LinearLayout.LayoutParams(0,dp(48),1));
         Button send=button("➤",true);send.setTextSize(22);LinearLayout.LayoutParams sp=lp(53,48);sp.leftMargin=dp(9);
         composer.addView(send,sp);
@@ -1229,6 +1245,18 @@ public final class NativeMessengerActivity extends Activity {
     private void onLiveEvent(JSONObject event){
         if(!isForeground || !api.hasSession() || user.optString("id","").isEmpty())return;
         String type=event.optString("type","");
+        if(type.equals("typing") && inDetail && !currentThreadIsGroup &&
+                currentThreadId.equals(event.optString("from")) && currentThreadSubtitle!=null){
+            TextView indicator=currentThreadSubtitle;
+            String standard="Личный чат";
+            int localGeneration=++typingGeneration;
+            indicator.setText("печатает…");
+            handler.postDelayed(()->{
+                if(localGeneration==typingGeneration && indicator==currentThreadSubtitle &&
+                        inDetail)indicator.setText(standard);
+            },3200);
+            return;
+        }
         if(type.equals("message.changed") || type.equals("message.read") ||
                 type.equals("group.changed")){
             if(inDetail && liveThreadRefresh!=null){
