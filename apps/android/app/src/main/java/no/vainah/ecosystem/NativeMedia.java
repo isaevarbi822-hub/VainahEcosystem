@@ -419,6 +419,8 @@ public final class NativeMedia {
             });
         }
         player.setOnCompletionListener(mp->{play.setText("▶ Повторить");});
+        // Release resources if the user leaves the audio dialog; never keep a
+        // private media file on disk longer than the active playback session.
         AlertDialog dialog=new AlertDialog.Builder(activity).setTitle("Vainah Audio")
                 .setView(panel).setNegativeButton("Закрыть",null).create();
         dialog.setOnDismissListener(d->{player.release();file.delete();});
