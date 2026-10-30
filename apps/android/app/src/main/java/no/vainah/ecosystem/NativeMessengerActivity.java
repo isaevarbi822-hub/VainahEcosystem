@@ -744,7 +744,7 @@ public final class NativeMessengerActivity extends Activity {
         FrameLayout messagesFrame=new FrameLayout(this);
         root.addView(messagesFrame,new LinearLayout.LayoutParams(-1,0,1));
         ScrollView scroll=new ScrollView(this);messagesFrame.addView(scroll,new FrameLayout.LayoutParams(-1,-1));
-        LinearLayout messages=column();pad(messages,14,15,14,15);scroll.addView(messages);
+        LinearLayout messages=column();pad(messages,16,18,16,18);messages.setBackgroundColor(BG);scroll.setFillViewport(true);scroll.addView(messages);
         final String[] replyingTo={""};
         TextView replyingBanner=text("",13,BLUE,false);
         pad(replyingBanner,19,10,19,10);
@@ -754,7 +754,7 @@ public final class NativeMessengerActivity extends Activity {
         replyingBanner.setOnClickListener(v->{
             replyingTo[0]="";replyingBanner.setVisibility(View.GONE);
         });
-        LinearLayout composer=row();pad(composer,7,8,7,12);composer.setBackgroundColor(PANEL);root.addView(composer,lp(-1,76));
+        LinearLayout composer=row();pad(composer,10,9,10,12);composer.setBackground(border(PANEL,22));root.addView(composer,lp(-1,76));
         {
             Button attach=button("＋",false);
             attach.setTextSize(24);
