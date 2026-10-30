@@ -138,6 +138,17 @@ class MessageReaction(Base):
     emoji: Mapped[str] = mapped_column(String(8))
 
 
+class MediaUploadRequest(Base):
+    """Persistent idempotency record for direct-chat uploads."""
+    __tablename__ = "media_upload_requests"
+    __table_args__ = (UniqueConstraint("sender_id", "request_key", name="uq_media_upload_sender_key"),)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    sender_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    request_key: Mapped[str] = mapped_column(String(36))
+    fingerprint: Mapped[str] = mapped_column(String(64))
+    message_id: Mapped[str] = mapped_column(ForeignKey("direct_messages.id", ondelete="CASCADE"), unique=True)
+
+
 class MessageAttachment(Base):
     __tablename__ = "message_attachments"
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
