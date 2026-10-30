@@ -46,6 +46,7 @@ public final class NativeApi {
     private final Activity activity;
     private final String origin;
     private final ExecutorService queue = Executors.newSingleThreadExecutor();
+    private final ExecutorService mediaQueue = Executors.newFixedThreadPool(2);
     private volatile String cookie = "";
     private volatile String csrf = "";
     private static final String KEY_ALIAS = "vainah-native-session-v1";
@@ -188,7 +189,7 @@ public final class NativeApi {
     /** Bounded multipart upload; file content never enters a JSON string or public URL. */
     public void uploadAttachment(String contactId, boolean group, Uri uri, String desiredFilename,
                                  String contentType, Callback callback) {
-        queue.execute(() -> {
+        mediaQueue.execute(() -> {
             HttpURLConnection conn=null;
             JSONObject result=new JSONObject();
             String error=null;
@@ -263,7 +264,7 @@ public final class NativeApi {
 
     /** Authenticated attachment download into a temporary private cache file. */
     public void fetchAttachment(String path, MediaCallback callback) {
-        queue.execute(()->{
+        mediaQueue.execute(()->{
             HttpURLConnection conn=null;
             File file=null;String error=null;
             try {
@@ -296,5 +297,5 @@ public final class NativeApi {
         });
     }
 
-    public void close() { queue.shutdownNow(); }
+    public void close() { queue.shutdownNow();mediaQueue.shutdownNow(); }
 }
