@@ -1,3 +1,13 @@
+# Vainah Messenger 0.9.0 — Android native preview
+
+**Android Messenger is no longer a WebView wrapper.** Its entry point is `NativeMessengerActivity`; it has a native dark chat list, email registration/login, Google Credential Manager, direct messaging, groups, channels, bots and settings. It uses a remote **API**, not an embedded website.
+
+Required GitHub repository Variables: `VAINAH_BASE_URL` and `VAINAH_GOOGLE_WEB_CLIENT_ID`. Required for stable Google OAuth: four GitHub **Secrets** for the Android signing keystore and passwords. Details: [Android native setup](apps/android/NATIVE-MESSENGER-SETUP.md).
+
+**Build publication is deliberately blocked until configuration is complete.** Compiling Java is not proof that remote Google sign-in or device networking work. `Vainah Ecosystem` and Windows clients remain separately maintained; do not confuse them with the native Messenger APK. No full E2EE, push notifications, Android video calls or media uploads in 0.9.0.
+
+---
+
 # Vainah Messenger 0.8.1 — Mobile UI and server setup
 
 - New Android-friendly conversation list matching the approved Vainah design: bottom navigation, rounded initials/channel/bot avatars, search and compose.
