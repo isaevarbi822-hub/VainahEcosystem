@@ -237,3 +237,13 @@ body.messenger-only{margin:0;background:var(--vm-bg);color:var(--vm-ink);font:15
 @media(prefers-reduced-motion:reduce){
   .messenger-only .vchat-composer textarea{transition:none!important}
 }
+
+/* Keyboard-first chat controls and safer touch targets. */
+.messenger-only .vchat-header-actions button,
+.messenger-only .vchat-composer button{min-width:42px;min-height:42px;touch-action:manipulation}
+.messenger-only .vchat-contact{touch-action:manipulation;scroll-margin-block:10px}
+.messenger-only .vchat-contact:focus-visible{background:rgba(80,150,235,.14)}
+@media(max-width:700px){
+ .messenger-only .vchat-contact{min-height:76px}
+ .messenger-only .vchat-header-actions button{min-width:44px;min-height:44px}
+}
