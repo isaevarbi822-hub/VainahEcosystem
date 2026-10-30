@@ -1376,17 +1376,33 @@ public final class NativeMessengerActivity extends Activity {
             request("GET","/api/auth/sessions",null,(data,error)->{
                 if(error!=null){notice(error);return;}
                 JSONArray items=data.optJSONArray("items");
-                int total=items==null?0:items.length();
-                int others=0;
-                for(int i=0;i<total;i++){
-                    JSONObject entry=items.optJSONObject(i);
-                    if(entry!=null&&!entry.optBoolean("current"))others++;
+                if(items==null){notice("Список сеансов недоступен");return;}
+                String[] labels=new String[items.length()];
+                for(int i=0;i<items.length();i++){
+                    JSONObject item=items.optJSONObject(i);
+                    boolean current=item!=null&&item.optBoolean("current");
+                    labels[i]=current?"Это устройство · текущий сеанс":"Другой сеанс · "+(i+1);
                 }
                 new AlertDialog.Builder(this).setTitle("Активные сеансы")
-                    .setMessage("Активных сеансов: "+total+". Других: "+others+
-                        ". Названия устройств пока не сохраняются.")
-                    .setPositiveButton("Понятно",null)
-                    .setNegativeButton("Закрыть",null).show();
+                    .setItems(labels,(dialog,index)->{
+                        JSONObject selected=items.optJSONObject(index);
+                        if(selected==null)return;
+                        if(selected.optBoolean("current")){
+                            notice("Текущий сеанс можно завершить выходом из профиля");
+                            return;
+                        }
+                        String selectedId=selected.optString("id","");
+                        if(selectedId.isEmpty())return;
+                        new AlertDialog.Builder(this).setTitle("Завершить сеанс?")
+                            .setMessage("На этом устройстве потребуется снова войти в Vainah.")
+                            .setPositiveButton("Завершить",(confirm,which)->
+                                request("POST","/api/auth/sessions/"+selectedId+"/revoke",
+                                    new JSONObject(),(result,err)->{
+                                        if(err!=null)notice(err);
+                                        else notice("Сеанс завершён");
+                                    }))
+                            .setNegativeButton("Отмена",null).show();
+                    }).setNegativeButton("Закрыть",null).show();
             });
         });
         sectionLink(account,"▣","Завершение других сеансов","Оставить только это устройство",()->{
