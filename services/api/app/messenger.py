@@ -152,6 +152,7 @@ def chats(db: Session = Depends(get_db), user: User = Depends(current_user)):
     users = {u.id: u for u in contacts}
     verified_ids = set(db.scalars(select(VerifiedAccount.user_id).where(
         VerifiedAccount.user_id.in_(peers.keys()))).all()) if peers else set()
+    from .handles import username_for
     result = []
     for peer_id, info in peers.items():
         peer = users.get(peer_id)
@@ -168,6 +169,7 @@ def chats(db: Session = Depends(get_db), user: User = Depends(current_user)):
             "archived": bool(prefs and prefs.archived),
             "muted": bool(prefs and prefs.muted),
             "id": peer.id, "display_name": peer.display_name, "email": peer.email,
+            "username": username_for(db, peer.id),
             "preview": preview, "updated_at": last.created_at,
             "unread": info["unread"], "blocked": block_exists(db, user.id, peer.id),
             "verified": peer_id in verified_ids,
@@ -220,7 +222,9 @@ def thread(contact_id: str, before: int | None = None, db: Session = Depends(get
     if before is not None:
         query = query.where(DirectMessage.created_at < before)
     messages = db.scalars(query.order_by(DirectMessage.created_at.desc(), DirectMessage.id.desc()).limit(100)).all()
-    return {"contact": {"id": peer.id, "display_name": peer.display_name, "email": peer.email},
+    from .handles import username_for
+    return {"contact": {"id": peer.id, "display_name": peer.display_name,
+                        "email": peer.email, "username": username_for(db, peer.id)},
             "blocked": block_exists(db, user.id, contact_id),
             "items": [view_message(db, msg, user.id) for msg in reversed(messages)],
             "has_more": len(messages) == 100}
