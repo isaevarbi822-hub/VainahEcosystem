@@ -152,3 +152,17 @@ python -c "import secrets,base64; print(base64.urlsafe_b64encode(secrets.token_b
 - Имена файлов вложений выводятся вместо пустых пузырей. Полноценный просмотр/отправка медиа на Android ещё в разработке.
 - В группах в текущей версии сервер поддерживает копирование, но не редактирование/реакции/ответы; приложение не обещает несуществующие действия.
 - Шифрование серверного хранилища через AES-GCM и защита HTTPS сохранены, однако E2EE пока не реализовано.
+
+## 0.10.0 — Voice, video notes, photos and files (Android)
+
+Grounded in Telegram's public feature documentation, but Vainah implements its own native Android UI.
+
+- Tap **＋** to open Android document picker for pictures, videos, audio and files (choose up to 5). Accepted formats are JPEG, PNG, GIF, WebP, MP3, OGG, WAV, M4A/AAC, MP4, WebM, PDF, ZIP. The backend verifies format signatures; unsupported attachments are rejected.
+- Tap **🎤** to start a native microphone recording, tap **■** to stop and send. Long-press to cancel the voice message. Permission is requested at runtime. The file is saved temporarily in app-private cache.
+- Tap **◉** to launch Android's camera app for a short **video note** (maximum requested duration 15 seconds); after recording it is sent as a video note and plays in a round-cropped Android viewer. Some camera apps may not honor duration/quality extras, or may return unsupported files; test on actual device.
+- Tap an incoming attachment to download with the current account's HTTP session and view/play in a private preview. Photos, audio/voice, videos and round video notes have viewers. Documents are opened with a system app using a temporary FileProvider grant.
+- Direct AND group messages have separate authenticated upload/download endpoints with membership validation. A non-member cannot download private group attachments. Voice and notes are shared via the same server as text.
+- Server caps: images 8 MB, audio 12 MB, video 20 MB, PDF/ZIP 12 MB; file bytes are currently stored server-side in the database. For a production service, migrate these binary blobs to a private object store with limits, scans and retention rules.
+- The verified blue badge still comes from the server, and verified group senders are marked. Existing Google sign-in, @username, Vainah ID, live chat and optional AES-GCM encrypted **message body** storage are preserved.
+- **Limitations**: no full photo/video editing, auto-compression, photo albums, stories, calls or background push yet. Camera output on OEM devices needs manual testing. Attachments currently are NOT encrypted at rest by the text-only `VAINAH_MESSAGE_ENCRYPTION_KEY`; E2EE is NOT implemented. Never advertise them as fully private E2EE media.
+- Backend deployment on Render must use new server commit before the mobile client can send large video/files or group attachments. Reactivation of App Store/Apple Sign In also requires valid Apple Developer setup.

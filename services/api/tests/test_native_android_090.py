@@ -49,7 +49,7 @@ def test_native_messenger_091_groups_and_safe_navigation():
     assert 'if(threadEpoch!=generation)return;' in native
     assert "stickToBottom" in native
     assert 'inDetail' in native
-    assert "versionName '0.9.8'" in gradle
+    assert "versionName '0.10.0'" in gradle
 
 
 def test_native_092_usernames_and_invites():
@@ -76,7 +76,7 @@ def test_native_messenger_094_permanent_numeric_id():
     assert 'ClipData.newPlainText("Vainah ID",number)' in native
     assert '"/api/people/id/"' in native
     gradle = (ANDROID / "build.gradle").read_text(encoding="utf-8")
-    assert "versionName '0.9.8'" in gradle
+    assert "versionName '0.10.0'" in gradle
 
 def test_native_messenger_095_reliability_and_controls():
     native = (SOURCE / "NativeMessengerActivity.java").read_text(encoding="utf-8")
@@ -102,7 +102,7 @@ def test_native_messenger_096_live_and_verified():
     assert "person.optBoolean(\"verified\")" in native
     assert "wss://" in realtime
     assert 'header("Cookie", sessionCookie)' in realtime
-    assert "versionName '0.9.8'" in gradle
+    assert "versionName '0.10.0'" in gradle
 
 def test_native_messenger_097_security_status_display():
     native = (SOURCE / "NativeMessengerActivity.java").read_text(encoding="utf-8")
@@ -110,7 +110,7 @@ def test_native_messenger_097_security_status_display():
     assert "Сквозное шифрование" not in native or "не" in native
     assert "end_to_end_encryption" in native or "E2EE" in native
     gradle = (ANDROID / "build.gradle").read_text(encoding="utf-8")
-    assert "versionName '0.9.8'" in gradle
+    assert "versionName '0.10.0'" in gradle
 
 def test_native_chat_actions_098():
     native=(SOURCE/"NativeMessengerActivity.java").read_text(encoding="utf-8")
@@ -122,6 +122,26 @@ def test_native_chat_actions_098():
                   'if(!sentReply.isEmpty())data.put("reply_to_id",sentReply)',
                   '"PATCH","/api/messenger/v2/message/"+id',
                   '"/api/messenger/v2/message/"+id,null',
-                  'attachment.optString("filename","Вложение")'):
+                  'attachment.optString("filename","Медиафайл")'):
         assert value in native, value
-    assert "versionName '0.9.8'" in gradle
+    assert "versionName '0.10.0'" in gradle
+
+def test_native_messenger_010_attachments_recording_and_viewing():
+    native=(SOURCE/"NativeMessengerActivity.java").read_text(encoding="utf-8")
+    media=(SOURCE/"NativeMedia.java").read_text(encoding="utf-8")
+    api=(SOURCE/"NativeApi.java").read_text(encoding="utf-8")
+    manifest=(ANDROID/"src/main/AndroidManifest.xml").read_text(encoding="utf-8")
+    for value in ("media.pickFile()", "media.captureRoundVideo()",
+                  "media.toggleVoice()", "media.openAttachment(fileAttachment)",
+                  "media.setContact(id,group)", "media.activityResult(requestCode,resultCode,intent)"):
+        assert value in native, value
+    for value in ("MediaRecorder.AudioEncoder.AAC", "MediaStore.ACTION_VIDEO_CAPTURE",
+                  "Intent.ACTION_OPEN_DOCUMENT", "FileProvider.getUriForFile",
+                  "public void stopVoice(boolean send)", "new TextureView(activity)"):
+        assert value in media, value
+    for value in ("uploadAttachment(String contactId, boolean group",
+                  "multipart/form-data; boundary=", "fetchAttachment(String path"):
+        assert value in api, value
+    assert 'android:grantUriPermissions="true"' in manifest
+    assert (ANDROID/"src/main/res/xml/native_file_paths.xml").is_file()
+    assert "versionName '0.10.0'" in (ANDROID/"build.gradle").read_text(encoding="utf-8")
