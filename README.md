@@ -1,3 +1,10 @@
+# Vainah Messenger 0.8.1 — Mobile UI and server setup
+
+- New Android-friendly conversation list matching the approved Vainah design: bottom navigation, rounded initials/channel/bot avatars, search and compose.
+- Chat list now integrates actual subscribed channels and bots; it never inserts fictional conversations.
+- Android allows configuring a real HTTPS server URL in app settings when the build has no preset VAINAH_BASE_URL. No more default localhost dead end.
+- Installable files are only confirmed after GitHub Actions finishes successfully. Google native sign-in still not implemented.
+
 # Vainah Messenger 0.8.0 — standalone preview
 
 **Новый сайт Messenger** запускается по `/` или `/app/messenger`. На нём больше нет каталога 11 приложений и Google-кнопки. Остальные приложения Vainah остаются в кодовой базе и доступны через собственные маршруты.
