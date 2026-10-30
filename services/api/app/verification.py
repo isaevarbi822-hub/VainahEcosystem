@@ -6,6 +6,8 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from .database import get_db
 from .models import User, VerifiedAccount
+from .public_ids import find_user_by_public_id
+from .handles import find_by_username
 from .security import current_user, csrf_protect, enforce_origin
 
 router = APIRouter(prefix="/api/messenger/v2/verification", tags=["verification"])
@@ -26,7 +28,12 @@ def manage_badge(data: VerificationAction, request: Request,
     admins = {s.strip() for s in os.getenv("VAINAH_VERIFICATION_ADMIN_IDS", "").split(",") if s.strip()}
     if user.id not in admins:
         raise HTTPException(403, "Только администратор Vainah может управлять галочками")
-    target = db.get(User, data.user_id)
+    identifier=data.user_id.strip()
+    target=db.get(User,identifier)
+    if target is None and identifier.isascii() and identifier.isdigit():
+        target=find_user_by_public_id(db,identifier)
+    if target is None and identifier.startswith("@"):
+        target=find_by_username(db,identifier)
     if target is None: raise HTTPException(404, "Аккаунт не найден")
     previous = db.get(VerifiedAccount, target.id)
     if data.verified and previous is None:
