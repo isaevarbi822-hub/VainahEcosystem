@@ -1381,7 +1381,10 @@ public final class NativeMessengerActivity extends Activity {
                 for(int i=0;i<items.length();i++){
                     JSONObject item=items.optJSONObject(i);
                     boolean current=item!=null&&item.optBoolean("current");
-                    labels[i]=current?"Это устройство · текущий сеанс":"Другой сеанс · "+(i+1);
+                    long created=item==null?0:item.optLong("created_at",0);
+                    long expires=item==null?0:item.optLong("expires_at",0);
+                    String title=current?"Текущий сеанс":"Другой сеанс "+(i+1);
+                    labels[i]=title+" · вход: "+formatTime(created)+" · до: "+formatTime(expires);
                 }
                 new AlertDialog.Builder(this).setTitle("Активные сеансы")
                     .setItems(labels,(dialog,index)->{
